@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07080f">
+<title>Game Maker AI</title>
+<style>
+:root{--bg:#07080f;--gl:linear-gradient(160deg,rgba(255,255,255,.11),rgba(255,255,255,.03));--bd:rgba(255,255,255,.12);--tx:#f3f4fb;--mu:#9096b0;--ac:#8b5cf6;--ac2:#ec4899;--gr:#10b981;--cy:#22d3ee;--rd:#f43f5e;--hi:inset 0 1px 0 rgba(255,255,255,.28),inset 0 -2px 6px rgba(0,0,0,.35)}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--tx);font:15px/1.4 -apple-system,"Segoe UI",Roboto,system-ui,sans-serif}
+body:before{content:"";position:fixed;inset:-20%;background:radial-gradient(40% 35% at 20% 15%,#8b5cf655,transparent),radial-gradient(35% 35% at 85% 85%,#22d3ee40,transparent),radial-gradient(30% 30% at 80% 10%,#ec489940,transparent);animation:au 14s ease-in-out infinite alternate;pointer-events:none}
+@keyframes au{to{transform:translate(4%,3%) rotate(6deg) scale(1.1)}}
+body:after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.09;mix-blend-mode:overlay;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+button{font:inherit;color:inherit;border:0;cursor:pointer;background:none}
+svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#app{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+#top{display:flex;align-items:center;gap:8px;padding:10px 12px}
+.ib{width:44px;height:44px;border-radius:15px;background:var(--gl);border:1px solid var(--bd);box-shadow:var(--hi),0 6px 16px #0006;display:grid;place-items:center;backdrop-filter:blur(14px);transition:.12s}
+.ib:active{transform:translateY(2px) scale(.94);box-shadow:inset 0 2px 8px #0008}
+#title{flex:1;text-align:center;font-weight:700;font-size:16px;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:8px;background:linear-gradient(90deg,#fff,#c9b8ff,#7ee7f7);-webkit-background-clip:text;background-clip:text;color:transparent;cursor:pointer}
+#stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:6px 14px}
+#frame{position:relative;background:#000;border:7px solid #151725;border-radius:30px;overflow:hidden;box-shadow:0 0 0 1.5px #3a3f66,0 0 0 4px #0c0d17,0 24px 60px #8b5cf655,0 0 90px #22d3ee20;transition:box-shadow .4s}
+#frame.live{animation:gl 1.6s ease-in-out infinite alternate}
+@keyframes gl{to{box-shadow:0 0 0 1.5px #ec4899,0 0 0 4px #0c0d17,0 24px 70px #ec489977,0 0 110px #8b5cf688}}
+iframe{width:100%;height:100%;border:0;background:#fff;display:block}
+#empty{text-align:center;color:var(--mu);padding:24px;max-width:340px}
+.orb{width:104px;height:104px;margin:0 auto 24px;border-radius:50%;background:conic-gradient(from 0deg,var(--ac),var(--ac2),var(--cy),var(--ac));box-shadow:0 0 60px #8b5cf6aa,0 0 120px #ec489955;animation:sp 6s linear infinite;display:grid;place-items:center}
+.orb:after{content:"";width:88px;height:88px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#2a2d52,#07080f 70%)}
+#empty h2{color:var(--tx);font-size:24px;margin-bottom:10px}#empty p{line-height:1.75}
+@keyframes sp{to{transform:rotate(360deg)}}
+#pill{margin:4px auto 0;max-width:92%;min-height:40px;display:flex;align-items:center;gap:10px;padding:8px 18px;border-radius:999px;background:var(--gl);border:1px solid var(--bd);box-shadow:var(--hi);backdrop-filter:blur(14px);font-size:14px;color:var(--mu);transition:.3s}
+#pill span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:75vw}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--mu);flex:none}
+.listen,.think,.speak{color:var(--tx)!important}
+.listen{box-shadow:0 0 24px #f43f5e55,var(--hi)!important}.think{box-shadow:0 0 24px #22d3ee55,var(--hi)!important}.speak{box-shadow:0 0 24px #8b5cf666,var(--hi)!important}
+.listen .dot{background:var(--rd);animation:bl 1s infinite}.think .dot{background:var(--cy);animation:bl .6s infinite}.speak .dot{display:none}
+@keyframes bl{50%{opacity:.25;transform:scale(.6)}}
+.eq{display:none;gap:3px;align-items:center;height:18px}.speak .eq{display:flex}
+.eq i{width:3px;height:100%;border-radius:2px;background:linear-gradient(var(--ac2),var(--cy));animation:eq .8s ease-in-out infinite}
+.eq i:nth-child(2){animation-delay:.15s}.eq i:nth-child(3){animation-delay:.3s}.eq i:nth-child(4){animation-delay:.45s}.eq i:nth-child(5){animation-delay:.6s}
+@keyframes eq{0%,100%{transform:scaleY(.2)}50%{transform:scaleY(1)}}
+#dock{display:flex;justify-content:center;gap:46px;padding:16px 0 20px}
+.cw{display:flex;flex-direction:column;align-items:center;gap:10px;font-size:12px;font-weight:600;letter-spacing:.6px;color:var(--mu);text-transform:uppercase}
+.big{position:relative;width:80px;height:80px;border-radius:50%;display:grid;place-items:center;color:#fff;transition:transform .12s,box-shadow .12s;outline:6px solid rgba(255,255,255,.05)}
+.big svg{width:32px;height:32px;filter:drop-shadow(0 2px 3px #0006);position:relative;z-index:2}
+#mic{background:radial-gradient(circle at 32% 22%,#ffffff88,transparent 42%),linear-gradient(150deg,#a78bfa,#8b5cf6 45%,#ec4899);box-shadow:inset 0 -8px 14px #0005,inset 0 3px 6px #ffffff66,0 14px 34px #8b5cf688,0 4px 0 #5b21b6}
+#call{background:radial-gradient(circle at 32% 22%,#ffffff88,transparent 42%),linear-gradient(150deg,#34d399,#10b981 45%,#0891b2);box-shadow:inset 0 -8px 14px #0005,inset 0 3px 6px #ffffff66,0 14px 34px #10b98188,0 4px 0 #047857}
+.big:active{transform:translateY(4px) scale(.96)}#mic:active{box-shadow:inset 0 -4px 10px #0005,0 6px 16px #8b5cf655,0 0 0 #5b21b6}#call:active{box-shadow:inset 0 -4px 10px #0005,0 6px 16px #10b98155,0 0 0 #047857}
+.big.on{background:radial-gradient(circle at 32% 22%,#ffffff88,transparent 42%),linear-gradient(150deg,#fb7185,#f43f5e 50%,#be123c)!important;box-shadow:inset 0 -8px 14px #0005,inset 0 3px 6px #ffffff66,0 14px 40px #f43f5eaa,0 4px 0 #9f1239!important}
+.big.on:before,.big.on:after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--rd);animation:rp 1.6s infinite}
+.big.on:after{animation-delay:.8s}@keyframes rp{to{transform:scale(1.8);opacity:0}}
+#shade{position:fixed;inset:0;background:#000b;backdrop-filter:blur(4px);z-index:8;opacity:0;pointer-events:none;transition:.25s}
+#shade.open{opacity:1;pointer-events:auto}
+#side{position:fixed;inset:0 auto 0 0;width:86%;max-width:350px;z-index:9;background:linear-gradient(180deg,#14162bf5,#0b0c18f8);backdrop-filter:blur(24px);border-right:1px solid var(--bd);transform:translateX(-105%);transition:.3s cubic-bezier(.2,.8,.2,1);padding:calc(18px + env(safe-area-inset-top)) 14px calc(14px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
+#side.open{transform:none}
+.logo{font-size:22px;font-weight:800;background:linear-gradient(90deg,var(--ac),var(--ac2),var(--cy));-webkit-background-clip:text;background-clip:text;color:transparent;padding:2px 6px 6px}
+.nw{display:flex;gap:10px}
+.nw button{flex:1;padding:16px 8px;border-radius:18px;color:#fff;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:13px;font-weight:700;box-shadow:inset 0 2px 0 #ffffff55,inset 0 -5px 10px #0004,0 8px 20px #0006;transition:.12s}
+.nw button:active{transform:translateY(2px) scale(.97)}
+#nL{background:radial-gradient(circle at 25% 15%,#ffffff44,transparent 50%),linear-gradient(145deg,#6366f1,#8b5cf6)}
+#nP{background:radial-gradient(circle at 25% 15%,#ffffff44,transparent 50%),linear-gradient(145deg,#ec4899,#f97316)}
+.nw svg{width:32px;height:32px}
+h4{color:var(--mu);font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;padding:6px 6px 0}
+#list{flex:1;overflow:auto;display:flex;flex-direction:column;gap:7px}
+.it{display:flex;align-items:center;border-radius:15px;background:var(--gl);border:1px solid var(--bd);box-shadow:var(--hi)}
+.it.a{border-color:var(--ac);box-shadow:0 0 18px #8b5cf655,var(--hi)}
+.it b{flex:1;font-weight:600;padding:13px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.it button{padding:13px;color:var(--mu)}
+.st{display:flex;align-items:center;gap:10px;padding:14px;border-radius:15px;background:var(--gl);border:1px solid var(--bd);box-shadow:var(--hi);font-weight:600}
+dialog{background:linear-gradient(180deg,#1a1c34,#0f1020);color:var(--tx);border:1px solid var(--bd);border-radius:24px;padding:22px;width:min(92%,420px);margin:auto;box-shadow:0 30px 80px #000}
+dialog::backdrop{background:#000c;backdrop-filter:blur(5px)}
+dialog h3{margin-bottom:6px;font-size:19px}dialog p{color:var(--mu);margin:4px 0 8px}
+label{display:block;margin:14px 0 6px;color:var(--mu);font-size:13px;font-weight:600}
+input,select{width:100%;background:#00000040;color:var(--tx);border:1px solid var(--bd);border-radius:13px;padding:13px;font:inherit;outline:0;box-shadow:inset 0 2px 6px #0006}
+input:focus,select:focus{border-color:var(--ac)}input[type=range]{padding:0;accent-color:var(--ac2);box-shadow:none;border:0;background:none}
+.row{display:flex;gap:10px;margin-top:18px}
+.btn{flex:1;padding:14px;border-radius:14px;background:var(--gl);border:1px solid var(--bd);font-weight:700;box-shadow:var(--hi);transition:.12s}
+.btn:active{transform:translateY(2px)}
+.btn.p{background:radial-gradient(circle at 25% 10%,#ffffff55,transparent 55%),linear-gradient(135deg,var(--ac),var(--ac2));border:0;box-shadow:inset 0 2px 0 #ffffff55,inset 0 -4px 8px #0004,0 8px 20px #8b5cf655}
+#vs{font-size:12px;color:var(--mu);margin-top:8px;min-height:16px}
+@media(orientation:landscape) and (max-height:520px){#dock{padding:4px 0 8px;gap:30px}.big{width:58px;height:58px}.cw span{display:none}#top{padding:4px 12px}}
+</style></head><body>
+<div id="app">
+ <div id="top"><button class="ib" id="menu" data-i="menu"></button><div id="title">Game Maker AI</div><button class="ib" id="undo" data-i="undo"></button><button class="ib" id="exp" data-i="dl"></button></div>
+ <div id="stage">
+  <div id="empty"><div class="orb"></div><h2>Build games by talking</h2><p>Open the menu, create a <b>Landscape</b> or <b>Portrait</b> game, then tap <b>Talk</b> or <b>Call</b>.<br>Speak Urdu or English.</p></div>
+  <div id="frame" hidden><iframe id="fr" sandbox="allow-scripts allow-pointer-lock"></iframe></div>
+ </div>
+ <div id="pill"><div class="dot"></div><div class="eq"><i></i><i></i><i></i><i></i><i></i></div><span id="cap">Tap Talk or Call to begin</span></div>
+ <div id="dock">
+  <div class="cw"><button class="big" id="mic" data-i="mic"></button><span>Talk</span></div>
+  <div class="cw"><button class="big" id="call" data-i="phone"></button><span>Call</span></div>
+ </div>
+</div>
+<div id="shade"></div>
+<div id="side">
+ <div class="logo">✦ Game Maker AI</div>
+ <div class="nw"><button id="nL"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="3"/><path d="M6 12h4M8 10v4M16 11h.01M18 13h.01"/></svg>Landscape</button>
+ <button id="nP"><svg viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></svg>Portrait</button></div>
+ <h4>History</h4><div id="list"></div>
+ <button class="st" id="set"><svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Settings</button>
+</div>
+<dialog id="dlg">
+ <h3>Settings</h3>
+ <label>AI provider</label><select id="pv"><option value="gemini">Google Gemini (FREE)</option><option value="anthropic">Anthropic Claude (paid)</option></select>
+ <label id="kl">API key</label><input id="k" type="password" autocomplete="off">
+ <div id="kh" style="font-size:12px;color:var(--mu);margin-top:6px"></div>
+ <label>Model</label><input id="m">
+ <label>I speak</label>
+ <select id="l"><option value="en-US">English</option><option value="ur-PK">اردو (Urdu)</option></select>
+ <label>AI voice</label><select id="vsel"></select>
+ <label>Voice speed</label><input id="rt" type="range" min=".7" max="1.4" step=".05">
+ <label>Sound effects</label><select id="sf"><option value="1">On</option><option value="0">Off</option></select>
+ <div id="vs"></div>
+ <div class="row"><button class="btn" id="tv">🔊 Test voice</button><button class="btn p" id="ok">Save</button></div>
+</dialog>
+<dialog id="md"><h3 id="mt"></h3><p id="mp"></p><input id="mi">
+ <div class="row"><button class="btn" id="mc">Cancel</button><button class="btn p" id="mo">OK</button></div></dialog>
+<script>
+const $=s=>document.querySelector(s);
+const IC={menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',undo:'<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/>',dl:'<path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/>',mic:'<rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/>',phone:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/>',trash:'<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'};
+const ico=n=>`<svg viewBox="0 0 24 24">${IC[n]}</svg>`;
+document.querySelectorAll('[data-i]').forEach(e=>e.innerHTML=ico(e.dataset.i));
+
+let D={};try{D=JSON.parse(localStorage.getItem('gm'))||{}}catch(e){}
+D=Object.assign({p:[],c:null,k:'',m:'',l:'en-US',vn:{},rt:1,s:true,pv:'gemini',kk:{},mm:{}},D);D.vn=D.vn||{};D.kk=D.kk||{};D.mm=D.mm||{};
+if(D.k&&!D.kk.anthropic){D.kk.anthropic=D.k;D.mm.anthropic=D.m||'claude-sonnet-5-5';D.pv='anthropic'}
+const DEF={gemini:'gemini-2.5-flash',anthropic:'claude-sonnet-5-5'};const KEY=()=>D.kk[D.pv]||'';const MODEL=()=>D.mm[D.pv]||DEF[D.pv];
+const save=()=>{try{localStorage.setItem('gm',JSON.stringify(D))}catch(e){}};
+const cur=()=>D.p.find(x=>x.id===D.c);
+let busy=false,call=false,rec=null,ctrl=null,listening=false;
+function st(k,t){$('#pill').className=k;if(t!=null)$('#cap').textContent=t}
+const idle=t=>st('',t||'Tap Talk or Call to begin');
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const buzz=n=>{try{navigator.vibrate&&navigator.vibrate(n)}catch(e){}};
+
+/* ---------- Sound effects (WebAudio synth) ---------- */
+let AC=null;
+function ac(){if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}}if(AC&&AC.state==='suspended')AC.resume();return AC}
+function tone(f,t0,d,type,v,f2){const a=ac();if(!a||!D.s)return;const t=a.currentTime+t0,o=a.createOscillator(),g=a.createGain();
+ o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+d);
+ g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v||.1,t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+d);
+ o.connect(g);g.connect(a.destination);o.start(t);o.stop(t+d+.03)}
+const SFX={tap:()=>tone(500,0,.09,'triangle',.1,820),open:()=>{tone(420,0,.1);tone(640,.07,.16)},close:()=>{tone(640,0,.08);tone(420,.06,.14)},
+ start:()=>{tone(523,0,.1,'sine',.12);tone(784,.09,.18,'sine',.12)},stop:()=>{tone(784,0,.1,'sine',.1);tone(523,.09,.16,'sine',.1)},
+ build:()=>tone(300+Math.random()*500,0,.05,'square',.025),think:()=>{tone(330,0,.12,'sine',.08);tone(392,.1,.12,'sine',.08)},
+ done:()=>[523,659,784,1047].forEach((f,i)=>tone(f,i*.085,.3,'sine',.12)),err:()=>tone(240,0,.3,'sawtooth',.09,110),
+ nw:()=>[392,523,659,880].forEach((f,i)=>tone(f,i*.06,.2,'triangle',.1))};
+const sfx=n=>{try{SFX[n]()}catch(e){}};
+document.addEventListener('click',e=>{if(e.target.closest('button')&&!e.target.closest('#mic,#call'))sfx('tap')},true);
+
+/* ---------- Speech synthesis ---------- */
+const TTS='speechSynthesis' in window;
+let voices=[],speakId=0,keepU=null,unlocked=false;
+const loadV=()=>{if(TTS)voices=speechSynthesis.getVoices()||[]};
+if(TTS){loadV();speechSynthesis.onvoiceschanged=()=>{loadV()}}
+const nl=v=>v.lang.toLowerCase().replace('_','-');
+const forLang=l=>voices.filter(v=>nl(v).startsWith(l.slice(0,2).toLowerCase()));
+const score=(v,l)=>(/natural|neural|enhanced|premium|online/i.test(v.name)?4:0)+(/google|samantha|siri/i.test(v.name)?2:0)+(v.localService?0:1)+(nl(v)===l.toLowerCase()?1:0);
+const bestVoice=l=>forLang(l).sort((a,b)=>score(b,l)-score(a,l))[0];
+function voiceFor(l){const c=forLang(l),n=D.vn[l];return(n&&c.find(v=>v.name===n))||bestVoice(l)}
+function unlock(){if(!TTS||unlocked)return;unlocked=true;try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u)}catch(e){}}
+function stopSpeak(){speakId++;if(TTS)try{speechSynthesis.cancel()}catch(e){}}
+async function speak(t){
+ const id=++speakId;if(!t)return;if(!TTS){st('',t);return}
+ try{speechSynthesis.cancel();await wait(90);speechSynthesis.resume()}catch(e){}
+ if(!voices.length){loadV();await wait(250);loadV()}
+ const ur=/[\u0600-\u06FF]/.test(t),lang=ur?'ur-PK':'en-US',v=voiceFor(lang);
+ const parts=t.match(/[^.!?۔؟\n]+[.!?۔؟]?/g)||[t];let failed=false;
+ st('speak','Speaking…'+(ur&&!v?' (no Urdu voice installed)':''));
+ for(const p of parts){
+  if(id!==speakId)return;const s=p.trim();if(!s)continue;
+  await new Promise(res=>{
+   const u=new SpeechSynthesisUtterance(s);u.lang=lang;if(v)u.voice=v;u.rate=+D.rt||1;u.pitch=1;keepU=u;
+   let done=false;const fin=()=>{if(!done){done=true;clearTimeout(to);res()}};
+   const to=setTimeout(fin,s.length*140+4000);
+   u.onend=fin;u.onerror=e=>{if(e.error&&!/interrupted|canceled/.test(e.error))failed=true;fin()};
+   try{speechSynthesis.speak(u)}catch(e){failed=true;fin()}});
+ }
+ if(id!==speakId)return;
+ if(failed)st('',t);else if($('#pill').className==='speak')idle(busy?'Working…':'');
+}
+
+/* ---------- Dialog helper (no prompt/confirm: they are blocked in many mobile views) ---------- */
+function ask(title,msg,val){return new Promise(res=>{const d=$('#md'),i=$('#mi');$('#mt').textContent=title;$('#mp').textContent=msg||'';i.hidden=val===undefined;i.value=val||'';
+ const end=v=>{d.close();res(v)};$('#mc').onclick=()=>end(null);$('#mo').onclick=()=>end(val===undefined?true:i.value);d.oncancel=()=>res(null);d.showModal()})}
+
+/* ---------- App UI ---------- */
+const SYS=o=>`You are a game-making AI. The user talks to you by voice (Urdu or English) and you build or edit a complete game inside ONE self-contained HTML file (inline CSS+JS, no external files, Canvas or DOM, touch + keyboard controls, WebAudio for sound effects and music). Orientation: ${o}. The game must fill the whole window (use innerWidth/innerHeight, handle resize) and be designed for a ${o==='portrait'?'360x640':'640x360'} phone screen. Build complete, polished, working features with beautiful modern visuals, particles, juicy animations and sound effects: menus, start screen, HUD, scoring, game over, restart, etc.
+OUTPUT FORMAT, exactly:
+<say>one or two short friendly sentences to speak to the user, in the SAME language they used (Urdu script for Urdu). Plain text only, no markdown, no code, no emoji.</say>
+<game>
+the FULL updated HTML file (always the whole file, keep all earlier features and apply the new request)
+</game>
+File order matters because the user watches it stream live: put <style> first, then body markup, and the <script> LAST. If the user only asks a question or chats, answer in <say> and omit <game>.`;
+
+function fit(){const p=cur();if(!p)return;const s=$('#stage'),f=$('#frame'),ar=p.o==='portrait'?9/16:16/9,w=s.clientWidth-28,h=s.clientHeight-12;let W,H;if(w/h>ar){H=h;W=h*ar}else{W=w;H=w/ar}f.style.width=Math.max(60,W)+'px';f.style.height=Math.max(60,H)+'px'}
+const BLANK='<body style="margin:0;background:radial-gradient(circle at 50% 40%,#1c1f3a,#07080f);color:#6b7090;font:16px sans-serif;display:flex;align-items:center;justify-content:center;height:100vh">Empty canvas — start talking…</body>';
+const show=h=>{$('#fr').srcdoc=h||BLANK};
+function draw(){const p=cur();$('#empty').hidden=!!p;$('#frame').hidden=!p;$('#title').textContent=p?p.n:'Game Maker AI';if(p){fit();show(p.h)}
+ const L=$('#list');L.innerHTML='';
+ D.p.slice().reverse().forEach(x=>{const d=document.createElement('div');d.className='it'+(x.id===D.c?' a':'');
+  const b=document.createElement('b');b.textContent=(x.o==='portrait'?'📱 ':'🖥️ ')+x.n;const t=document.createElement('button');t.innerHTML=ico('trash');
+  d.append(b,t);b.onclick=()=>{stopAll();D.c=x.id;save();draw();side(0)};
+  t.onclick=async()=>{if(await ask('Delete game?',x.n)){D.p=D.p.filter(y=>y!==x);if(D.c===x.id)D.c=null;save();draw()}};L.append(d)});
+ if(!D.p.length)L.innerHTML='<div style="color:var(--mu);padding:8px">No games yet</div>'}
+const side=o=>{$('#side').classList.toggle('open',!!o);$('#shade').classList.toggle('open',!!o);sfx(o?'open':'close')};
+function newP(o){try{stopAll();const n=D.p.filter(x=>x.o===o).length+1;
+ const p={id:Date.now(),n:(o==='portrait'?'Portrait ':'Landscape ')+n,o,h:'',m:[],v:[]};
+ D.p.push(p);D.c=p.id;save();draw();side(0);sfx('nw');buzz(20);idle('Canvas ready. Tap Talk and tell me what to build')}
+ catch(e){idle('Error: '+e.message)}}
+$('#menu').onclick=()=>side(1);$('#shade').onclick=()=>side(0);
+$('#nL').onclick=()=>newP('landscape');$('#nP').onclick=()=>newP('portrait');
+$('#title').onclick=async()=>{const p=cur();if(!p)return;const n=await ask('Rename game','',p.n);if(n&&n.trim()){p.n=n.trim();save();draw()}};
+function fillVoices(){const l=$('#l').value,s=$('#vsel');loadV();const c=forLang(l);
+ s.innerHTML='<option value="">Auto (best available)</option>'+c.map(v=>`<option value="${v.name.replace(/"/g,'&quot;')}">${v.name}</option>`).join('');
+ s.value=D.vn[l]&&c.find(v=>v.name===D.vn[l])?D.vn[l]:'';
+ $('#vs').textContent=!TTS?'⚠ Voice output not supported in this browser.':c.length?`✓ ${c.length} voice(s) found. Auto picks the most natural one.`:'⚠ No voice for this language. Install one in device Text-to-speech settings.'}
+let shownPv='gemini';
+function pvFill(){const p=$('#pv').value;$('#k').value=D.kk[p]||'';$('#m').value=D.mm[p]||DEF[p];$('#kl').textContent=p==='gemini'?'Google Gemini API key (free)':'Anthropic API key';$('#k').placeholder=p==='gemini'?'AIza...':'sk-ant-...';$('#kh').textContent=p==='gemini'?'Free key, no card: aistudio.google.com/apikey':'Paid key from console.anthropic.com'}
+$('#pv').onchange=()=>{D.kk[shownPv]=$('#k').value.trim();D.mm[shownPv]=$('#m').value.trim()||DEF[shownPv];shownPv=$('#pv').value;pvFill()};
+$('#set').onclick=()=>{$('#pv').value=D.pv;shownPv=D.pv;pvFill();$('#l').value=D.l;$('#rt').value=D.rt;$('#sf').value=D.s?'1':'0';fillVoices();$('#dlg').showModal()};
+$('#l').onchange=fillVoices;
+function applyVoice(){D.vn[$('#l').value]=$('#vsel').value;D.rt=+$('#rt').value||1;D.s=$('#sf').value==='1'}
+$('#tv').onclick=()=>{unlock();ac();applyVoice();speak($('#l').value==='ur-PK'?'السلام علیکم، میں آپ کا گیم بنانے والا معاون ہوں۔ بتائیں کیا بنانا ہے؟':'Hello, I am your game maker. Tell me what you want to build.')};
+$('#ok').onclick=()=>{D.pv=$('#pv').value;D.kk[D.pv]=$('#k').value.trim();D.mm[D.pv]=$('#m').value.trim()||DEF[D.pv];D.k='';D.l=$('#l').value;applyVoice();save();stopSpeak();$('#dlg').close();idle();sfx('done')};
+$('#undo').onclick=()=>{const p=cur();if(p&&p.v.length){p.h=p.v.pop();save();show(p.h);idle('Undone')}};
+$('#exp').onclick=()=>{const p=cur();if(!p||!p.h)return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([p.h],{type:'text/html'}));a.download=p.n+'.html';a.click()};
+addEventListener('resize',fit);
+addEventListener('error',e=>{idle('Error: '+e.message)});
+
+/* ---------- Listening ---------- */
+function stopAll(){call=false;$('#call').classList.remove('on');$('#mic').classList.remove('on');listening=false;
+ if(rec)try{rec.abort()}catch(e){}if(ctrl)try{ctrl.abort()}catch(e){}stopSpeak();idle()}
+function listen(){
+ if(busy||listening)return;const R=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!R){idle('Voice input needs Chrome or Safari');call=false;$('#call').classList.remove('on');sfx('err');return}
+ stopSpeak();let fin='';rec=new R();rec.lang=D.l;rec.interimResults=true;rec.continuous=false;
+ rec.onstart=()=>{listening=true;$('#mic').classList.add('on');st('listen','Listening…');sfx('start');buzz(15)};
+ rec.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript;fin=t;$('#cap').textContent=t};
+ rec.onerror=e=>{if(/not-allowed|service-not-allowed/.test(e.error)){stopAll();idle('Microphone blocked. Allow mic access and retry');sfx('err')}};
+ rec.onend=()=>{listening=false;$('#mic').classList.remove('on');
+  if(fin.trim()){sfx('stop');send(fin.trim())}else if(call)setTimeout(listen,400);else idle()};
+ try{rec.start()}catch(e){listening=false}}
+function guard(){unlock();ac();if(!cur()){side(1);return false}if(!KEY()){$('#set').click();return false}return true}
+$('#mic').onclick=()=>{if(!guard())return;if(listening){rec.stop()}else if(!busy){listen()}else sfx('err')};
+$('#call').onclick=()=>{if(!guard())return;if(call){stopAll();sfx('stop')}else{call=true;$('#call').classList.add('on');listen()}};
+
+/* ---------- AI: streams live into the preview ---------- */
+function gameOf(t){const i=t.indexOf('<game>');if(i<0)return null;let s=t.slice(i+6);const e=s.indexOf('</game>');if(e>=0)s=s.slice(0,e);return s.replace(/^\s*```(?:html)?\s*/,'').replace(/```\s*$/,'')}
+async function send(text){
+ const p=cur();if(!p)return;busy=true;st('think','Building…');sfx('think');p.m.push({role:'user',content:text});
+ let acc='',last=0,say='',sp=Promise.resolve(),spoken=false,ok=true;ctrl=new AbortController();
+ const msgs=p.m.slice(-12);while(msgs[0]&&msgs[0].role!=='user')msgs.shift();
+ const prev=p.h;$('#frame').classList.add('live');
+ const tick=setInterval(()=>{const g=gameOf(acc);if(g!==null&&g.length!==last){last=g.length;show(g);sfx('build')}},350);
+ try{
+  const sys=SYS(p.o)+'\n\nCURRENT GAME FILE:\n'+(p.h||'(empty, nothing built yet)');let r;
+  if(D.pv==='gemini'){r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(MODEL())+':streamGenerateContent?alt=sse&key='+encodeURIComponent(KEY()),{method:'POST',signal:ctrl.signal,headers:{'content-type':'application/json'},
+   body:JSON.stringify({systemInstruction:{parts:[{text:sys}]},contents:msgs.map(m=>({role:m.role==='user'?'user':'model',parts:[{text:m.content}]})),generationConfig:{maxOutputTokens:32000}})})}
+  else{r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:ctrl.signal,
+   headers:{'content-type':'application/json','x-api-key':KEY(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+   body:JSON.stringify({model:MODEL(),max_tokens:16000,stream:true,system:sys,messages:msgs})})}
+  if(r.status===429)throw new Error('Free limit reached. Wait a minute and try again.');
+  if(!r.ok)throw new Error((await r.text()).slice(0,160));
+  const rd=r.body.getReader(),dc=new TextDecoder();let buf='';
+  while(true){const{done,value}=await rd.read();if(done)break;buf+=dc.decode(value,{stream:true});
+   const ls=buf.split('\n');buf=ls.pop();
+   for(const l of ls){if(!l.startsWith('data:'))continue;try{const j=JSON.parse(l.slice(5));if(j.type==='content_block_delta'&&j.delta.text)acc+=j.delta.text;else if(j.candidates){for(const pt of(j.candidates[0].content&&j.candidates[0].content.parts)||[])if(pt.text)acc+=pt.text}}catch(e){}}
+   const m=acc.match(/<say>([\s\S]*?)<\/say>/);if(m&&!spoken){spoken=true;say=m[1].trim();sp=speak(say)}}
+  clearInterval(tick);const g=gameOf(acc);
+  if(g!==null&&g.trim()){if(prev){p.v.push(prev);if(p.v.length>15)p.v.shift()}p.h=g;show(g)}
+  if(!spoken){const m=acc.match(/<say>([\s\S]*?)(<\/say>|$)/);say=m&&m[1].trim()?m[1].trim():(D.l==='ur-PK'?'ہو گیا۔':'Done.');sp=speak(say)}
+  p.m.push({role:'assistant',content:say});sfx('done');buzz([20,40,20]);
+ }catch(e){clearInterval(tick);ok=false;if(e.name!=='AbortError'){p.m.pop();sfx('err');say=D.l==='ur-PK'?'معذرت، کچھ غلط ہو گیا۔ اپنی کی چیک کریں۔':'Sorry, something went wrong. Check your API key.';sp=speak(say);setTimeout(()=>st('',e.message.slice(0,90)),50)}}
+ busy=false;save();$('#frame').classList.remove('live');
+ await sp;if(call){await wait(300);if(call)listen()}else if($('#pill').className!=='')idle()}
+
+draw();if(!KEY())setTimeout(()=>idle('Open the menu → Settings and add your free API key'),300);
+</script></body></html>
