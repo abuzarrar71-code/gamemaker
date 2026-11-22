@@ -110,6 +110,7 @@ input:focus,select:focus{border-color:var(--ac)}input[type=range]{padding:0;acce
  <label>Voice speed</label><input id="rt" type="range" min=".7" max="1.4" step=".05">
  <label>Sound effects</label><select id="sf"><option value="1">On</option><option value="0">Off</option></select>
  <div id="vs"></div>
+ <div class="row" style="margin-top:12px"><button class="btn" id="tc">🔌 Test connection</button></div>
  <div class="row"><button class="btn" id="tv">🔊 Test voice</button><button class="btn p" id="ok">Save</button></div>
 </dialog>
 <dialog id="md"><h3 id="mt"></h3><p id="mp"></p><input id="mi">
@@ -215,7 +216,7 @@ function fillVoices(){const l=$('#l').value,s=$('#vsel');loadV();const c=forLang
  s.value=D.vn[l]&&c.find(v=>v.name===D.vn[l])?D.vn[l]:'';
  $('#vs').textContent=!TTS?'⚠ Voice output not supported in this browser.':c.length?`✓ ${c.length} voice(s) found. Auto picks the most natural one.`:'⚠ No voice for this language. Install one in device Text-to-speech settings.'}
 let shownPv='gemini';
-function pvFill(){const p=$('#pv').value;$('#k').value=D.kk[p]||'';$('#m').value=D.mm[p]||DEF[p];$('#kl').textContent=p==='gemini'?'Google Gemini API key (free)':'Anthropic API key';$('#k').placeholder=p==='gemini'?'AIza...':'sk-ant-...';$('#kh').textContent=p==='gemini'?'Free key, no card: aistudio.google.com/apikey':'Paid key from console.anthropic.com'}
+function pvFill(){const p=$('#pv').value;$('#k').value=D.kk[p]||'';$('#m').value=D.mm[p]||DEF[p];$('#kl').textContent=p==='gemini'?'Google Gemini API key (free)':'Anthropic API key';$('#k').placeholder=p==='gemini'?'AQ.… or AIza…':'sk-ant-...';$('#kh').textContent=p==='gemini'?'Free key, no card: aistudio.google.com/apikey':'Paid key from console.anthropic.com'}
 $('#pv').onchange=()=>{D.kk[shownPv]=$('#k').value.trim();D.mm[shownPv]=$('#m').value.trim()||DEF[shownPv];shownPv=$('#pv').value;pvFill()};
 $('#set').onclick=()=>{$('#pv').value=D.pv;shownPv=D.pv;pvFill();$('#l').value=D.l;$('#rt').value=D.rt;$('#sf').value=D.s?'1':'0';fillVoices();$('#dlg').showModal()};
 $('#l').onchange=fillVoices;
@@ -226,6 +227,29 @@ $('#undo').onclick=()=>{const p=cur();if(p&&p.v.length){p.h=p.v.pop();save();sho
 $('#exp').onclick=()=>{const p=cur();if(!p||!p.h)return;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([p.h],{type:'text/html'}));a.download=p.n+'.html';a.click()};
 addEventListener('resize',fit);
 addEventListener('error',e=>{idle('Error: '+e.message)});
+
+/* ---------- Gemini helpers ---------- */
+const GFB=['gemini-3.5-flash','gemini-2.5-flash','gemini-flash-latest'];
+function errmsg(t){try{const j=JSON.parse(t);return(Array.isArray(j)?j[0]:j).error.message}catch(e){return String(t).slice(0,200)}}
+async function gAuth(url,opt){const modes=D.am==='q'?['q','h']:['h','q'];let last;
+ for(const m of modes){const u=m==='q'?url+(url.includes('?')?'&':'?')+'key='+encodeURIComponent(KEY()):url;
+  const h=Object.assign({},opt.headers);if(m==='h')h['x-goog-api-key']=KEY();
+  const r=await fetch(u,Object.assign({},opt,{headers:h}));
+  if(r.status!==401&&r.status!==403){D.am=m;return r}last=r}
+ return last}
+$('#tc').onclick=async()=>{D.pv=$('#pv').value;shownPv=D.pv;D.kk[D.pv]=$('#k').value.trim();D.mm[D.pv]=$('#m').value.trim()||DEF[D.pv];
+ const v=$('#vs');if(!KEY()){v.textContent='✗ Paste your key first.';return}v.textContent='Testing connection…';
+ try{
+  if(D.pv==='gemini'){
+   const r=await gAuth('https://generativelanguage.googleapis.com/v1beta/models?pageSize=100',{method:'GET',headers:{}});const t=await r.text();
+   if(!r.ok)throw new Error(r.status+': '+errmsg(t));
+   const names=(JSON.parse(t).models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')).map(m=>m.name.replace('models/',''));
+   const fl=names.filter(n=>/flash/.test(n)&&!/lite|image|tts|live|preview|exp|thinking|audio|8b/.test(n)).sort((a,b)=>b.localeCompare(a,undefined,{numeric:true}));
+   if(!names.includes($('#m').value.trim())&&fl[0])$('#m').value=fl[0];
+   v.textContent='✓ Key works! Model: '+$('#m').value+'. Now tap Save.';sfx('done')}
+  else{const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':KEY(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:MODEL(),max_tokens:5,messages:[{role:'user',content:'hi'}]})});
+   const t=await r.text();if(!r.ok)throw new Error(r.status+': '+errmsg(t));v.textContent='✓ Key works! Tap Save.';sfx('done')}
+ }catch(e){v.textContent='✗ '+e.message;sfx('err')}};
 
 /* ---------- Listening ---------- */
 function stopAll(){call=false;$('#call').classList.remove('on');$('#mic').classList.remove('on');listening=false;
@@ -248,19 +272,21 @@ $('#call').onclick=()=>{if(!guard())return;if(call){stopAll();sfx('stop')}else{c
 function gameOf(t){const i=t.indexOf('<game>');if(i<0)return null;let s=t.slice(i+6);const e=s.indexOf('</game>');if(e>=0)s=s.slice(0,e);return s.replace(/^\s*```(?:html)?\s*/,'').replace(/```\s*$/,'')}
 async function send(text){
  const p=cur();if(!p)return;busy=true;st('think','Building…');sfx('think');p.m.push({role:'user',content:text});
- let acc='',last=0,say='',sp=Promise.resolve(),spoken=false,ok=true;ctrl=new AbortController();
+ let errText='',acc='',last=0,say='',sp=Promise.resolve(),spoken=false,ok=true;ctrl=new AbortController();
  const msgs=p.m.slice(-12);while(msgs[0]&&msgs[0].role!=='user')msgs.shift();
  const prev=p.h;$('#frame').classList.add('live');
  const tick=setInterval(()=>{const g=gameOf(acc);if(g!==null&&g.length!==last){last=g.length;show(g);sfx('build')}},350);
  try{
   const sys=SYS(p.o)+'\n\nCURRENT GAME FILE:\n'+(p.h||'(empty, nothing built yet)');let r;
-  if(D.pv==='gemini'){r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(MODEL())+':streamGenerateContent?alt=sse&key='+encodeURIComponent(KEY()),{method:'POST',signal:ctrl.signal,headers:{'content-type':'application/json'},
-   body:JSON.stringify({systemInstruction:{parts:[{text:sys}]},contents:msgs.map(m=>({role:m.role==='user'?'user':'model',parts:[{text:m.content}]})),generationConfig:{maxOutputTokens:32000}})})}
+  if(D.pv==='gemini'){const body=JSON.stringify({systemInstruction:{parts:[{text:sys}]},contents:msgs.map(m=>({role:m.role==='user'?'user':'model',parts:[{text:m.content}]})),generationConfig:{maxOutputTokens:32000}});
+   for(const mdl of [MODEL(),...GFB.filter(x=>x!==MODEL())]){
+    r=await gAuth('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(mdl)+':streamGenerateContent?alt=sse',{method:'POST',signal:ctrl.signal,headers:{'content-type':'application/json'},body});
+    if(r.status!==404){if(r.ok&&mdl!==MODEL())D.mm.gemini=mdl;break}}}
   else{r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:ctrl.signal,
    headers:{'content-type':'application/json','x-api-key':KEY(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
    body:JSON.stringify({model:MODEL(),max_tokens:16000,stream:true,system:sys,messages:msgs})})}
   if(r.status===429)throw new Error('Free limit reached. Wait a minute and try again.');
-  if(!r.ok)throw new Error((await r.text()).slice(0,160));
+  if(!r.ok){const tx=await r.text();throw new Error(r.status+': '+errmsg(tx))}
   const rd=r.body.getReader(),dc=new TextDecoder();let buf='';
   while(true){const{done,value}=await rd.read();if(done)break;buf+=dc.decode(value,{stream:true});
    const ls=buf.split('\n');buf=ls.pop();
@@ -270,9 +296,11 @@ async function send(text){
   if(g!==null&&g.trim()){if(prev){p.v.push(prev);if(p.v.length>15)p.v.shift()}p.h=g;show(g)}
   if(!spoken){const m=acc.match(/<say>([\s\S]*?)(<\/say>|$)/);say=m&&m[1].trim()?m[1].trim():(D.l==='ur-PK'?'ہو گیا۔':'Done.');sp=speak(say)}
   p.m.push({role:'assistant',content:say});sfx('done');buzz([20,40,20]);
- }catch(e){clearInterval(tick);ok=false;if(e.name!=='AbortError'){p.m.pop();sfx('err');say=D.l==='ur-PK'?'معذرت، کچھ غلط ہو گیا۔ اپنی کی چیک کریں۔':'Sorry, something went wrong. Check your API key.';sp=speak(say);setTimeout(()=>st('',e.message.slice(0,90)),50)}}
+ }catch(e){clearInterval(tick);ok=false;if(e.name!=='AbortError'){p.m.pop();sfx('err');errText=e.message||String(e);
+  say=D.l==='ur-PK'?'معذرت، ایک مسئلہ آیا ہے۔ اسکرین پر پیغام دیکھیں۔':'Sorry, there was a problem. Please read the message on screen.';sp=speak(say)}}
  busy=false;save();$('#frame').classList.remove('live');
- await sp;if(call){await wait(300);if(call)listen()}else if($('#pill').className!=='')idle()}
+ await sp;if(errText){call=false;$('#call').classList.remove('on');st('',errText.slice(0,90));ask('Error details',errText);return}
+ if(call){await wait(300);if(call)listen()}else if($('#pill').className!=='')idle()}
 
 draw();if(!KEY())setTimeout(()=>idle('Open the menu → Settings and add your free API key'),300);
 </script></body></html>
