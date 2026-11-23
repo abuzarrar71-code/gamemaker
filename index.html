@@ -172,12 +172,15 @@ input:focus,select:focus{border-color:var(--ac)}input[type=range]{padding:0;acce
 </div>
 <dialog id="dlg">
  <h3>Settings</h3>
- <label>AI provider</label><select id="pv"><option value="gemini">Google Gemini (FREE)</option><option value="anthropic">Anthropic Claude (paid)</option></select>
+ <label>AI provider</label><select id="pv"><option value="gemini">Google Gemini (FREE)</option><option value="anthropic">Anthropic Claude (paid)</option><option value="local">On this phone (no key, no limits)</option></select>
  <label id="kl">API key</label><input id="k" type="password" autocomplete="off">
  <div id="kh" style="font-size:12px;color:var(--mu);margin-top:6px"></div>
- <label>Model</label><input id="m">
+ <label id="ml">Model</label><input id="m">
+ <div id="lqb" hidden><label>On-device AI size</label><select id="lq"><option value="1.5">Light (fast, ~1 GB)</option><option value="3">Balanced (~2 GB)</option><option value="7">Strong (~4-5 GB, powerful phones only)</option></select></div>
  <label>I speak</label>
  <select id="l"><option value="en-US">English</option><option value="ur-PK">اردو (Urdu)</option></select>
+ <label>Voice input</label><select id="ve"><option value="browser">Browser voice (fast, needs internet)</option><option value="whisper">Own voice (Whisper, on this phone)</option></select>
+ <div id="wmb" hidden><label>Own-voice model</label><select id="wm"><option value="Xenova/whisper-tiny">Tiny (~40 MB, fastest)</option><option value="Xenova/whisper-base">Base (~80 MB)</option><option value="Xenova/whisper-small">Small (~250 MB, best Urdu)</option></select></div>
  <label>AI voice</label><select id="vsel"></select>
  <label>Voice speed</label><input id="rt" type="range" min=".7" max="1.4" step=".05">
  <label>Sound effects</label><select id="sf"><option value="1">On</option><option value="0">Off</option></select>
@@ -203,9 +206,9 @@ document.querySelectorAll('[data-i]').forEach(e=>e.innerHTML=ico(e.dataset.i));
 setTimeout(()=>$('#splash').classList.add('gone'),1500);
 
 let D={};try{D=JSON.parse(localStorage.getItem('gm'))||{}}catch(e){}
-D=Object.assign({p:[],c:null,k:'',m:'',l:'en-US',vn:{},rt:1,s:true,pv:'gemini',kk:{},mm:{},th:'aurora',am:'h',bg:true},D);D.vn=D.vn||{};D.kk=D.kk||{};D.mm=D.mm||{};
+D=Object.assign({p:[],c:null,k:'',m:'',l:'en-US',vn:{},rt:1,s:true,pv:'gemini',kk:{},mm:{},th:'aurora',am:'h',bg:true,ve:'browser',wm:'Xenova/whisper-base',lq:'3'},D);D.vn=D.vn||{};D.kk=D.kk||{};D.mm=D.mm||{};
 if(D.k&&!D.kk.anthropic){D.kk.anthropic=D.k;D.mm.anthropic=D.m||'claude-sonnet-5-5';D.pv='anthropic'}
-const DEF={gemini:'gemini-2.5-flash',anthropic:'claude-sonnet-5-5'};const KEY=()=>D.kk[D.pv]||'';const MODEL=()=>D.mm[D.pv]||DEF[D.pv];
+const DEF={gemini:'gemini-2.5-flash',anthropic:'claude-sonnet-5-5',local:'auto'};const KEY=()=>D.pv==='local'?'local':(D.kk[D.pv]||'');const MODEL=()=>D.mm[D.pv]||DEF[D.pv];
 const save=()=>{try{localStorage.setItem('gm',JSON.stringify(D))}catch(e){try{D.p.forEach(x=>x.v=[]);localStorage.setItem('gm',JSON.stringify(D))}catch(e2){}}};
 const cur=()=>D.p.find(x=>x.id===D.c);
 document.documentElement.dataset.t=D.th;
@@ -269,8 +272,8 @@ function voiceFor(l){const c=forLang(l),n=D.vn[l];return(n&&c.find(v=>v.name===n
 function unlock(){if(!TTS||unlocked)return;unlocked=true;try{const u=new SpeechSynthesisUtterance(' ');u.volume=0;speechSynthesis.speak(u)}catch(e){}}
 function stopSpeak(){speakId++;speaking=false;if(TTS)try{speechSynthesis.cancel()}catch(e){}}
 function abortCallRec(){if(mode==='call'&&rec){callRun=false;try{rec.abort()}catch(e){}}}
-async function speak(t){
- const id=++speakId;if(!t)return;if(!TTS){toast(t,6000);return}
+async function speak(t,q){
+ const id=++speakId;if(!t)return;if(!TTS){if(!q)toast(t,6000);return}
  speaking=true;abortCallRec();let bad=false;
  try{
   try{speechSynthesis.cancel();await wait(90);speechSynthesis.resume()}catch(e){}
@@ -287,7 +290,7 @@ async function speak(t){
     u.onend=fin;u.onerror=e=>{if(e.error&&!/interrupted|canceled/.test(e.error))bad=true;fin()};
     try{speechSynthesis.speak(u)}catch(e){bad=true;fin()}});
   }
- }finally{if(id===speakId){speaking=false;rest();if(mode==='call')setTimeout(callListen,250);if(bad)toast(t,6000)}}
+ }finally{if(id===speakId){speaking=false;rest();if(mode==='call')setTimeout(callListen,250);if(bad&&!q)toast(t,6000)}}
 }
 
 /* ---------- Dialog helper ---------- */
@@ -464,13 +467,15 @@ function fillVoices(){const l=$('#l').value,s=$('#vsel');loadV();const c=forLang
  s.value=D.vn[l]&&c.find(v=>v.name===D.vn[l])?D.vn[l]:'';
  $('#vs').textContent=!TTS?'⚠ Voice output not supported in this browser.':c.length?`✓ ${c.length} voice(s) found. Auto picks the most natural one.`:'⚠ No voice for this language. Install one in device Text-to-speech settings.'}
 let shownPv='gemini';
-function pvFill(){const p=$('#pv').value;$('#k').value=D.kk[p]||'';$('#m').value=D.mm[p]||DEF[p];$('#kl').textContent=p==='gemini'?'Google Gemini API key (free)':'Anthropic API key';$('#k').placeholder=p==='gemini'?'AQ.… or AIza…':'sk-ant-...';$('#kh').textContent=p==='gemini'?'Free key, no card: aistudio.google.com/apikey':'Paid key from console.anthropic.com'}
+function pvFill(){const p=$('#pv').value,lo=p==='local';$('#k').value=D.kk[p]||'';$('#m').value=D.mm[p]||DEF[p];$('#kl').textContent=p==='gemini'?'Google Gemini API key (free)':'Anthropic API key';$('#k').placeholder=p==='gemini'?'AQ.… or AIza…':'sk-ant-...';
+ $('#kh').textContent=lo?'No key needed. The AI runs on this phone (needs a recent phone with WebGPU in Chrome). First use downloads a model once. Simpler games than the online AI, and no photo/video understanding.':p==='gemini'?'Free key, no card: aistudio.google.com/apikey':'Paid key from console.anthropic.com';
+ $('#kl').hidden=$('#k').hidden=lo;$('#lqb').hidden=!lo;$('#ml').textContent=lo?'Model (auto = best for the size above)':'Model'}
 $('#pv').onchange=()=>{D.kk[shownPv]=$('#k').value.trim();D.mm[shownPv]=$('#m').value.trim()||DEF[shownPv];shownPv=$('#pv').value;pvFill()};
-$('#set').onclick=()=>{$('#pv').value=D.pv;shownPv=D.pv;pvFill();$('#l').value=D.l;$('#rt').value=D.rt;$('#sf').value=D.s?'1':'0';$('#bgs').value=D.bg?'1':'0';$('#th').value=D.th;fillVoices();$('#dlg').showModal()};
-$('#l').onchange=fillVoices;$('#th').onchange=()=>{document.documentElement.dataset.t=$('#th').value;bgColors()};
+$('#set').onclick=()=>{$('#pv').value=D.pv;shownPv=D.pv;pvFill();$('#l').value=D.l;$('#ve').value=D.ve;$('#wm').value=D.wm;$('#wmb').hidden=D.ve!=='whisper';$('#lq').value=D.lq;$('#rt').value=D.rt;$('#sf').value=D.s?'1':'0';$('#bgs').value=D.bg?'1':'0';$('#th').value=D.th;fillVoices();$('#dlg').showModal()};
+$('#l').onchange=fillVoices;$('#ve').onchange=()=>{$('#wmb').hidden=$('#ve').value!=='whisper'};$('#th').onchange=()=>{document.documentElement.dataset.t=$('#th').value;bgColors()};
 function applyVoice(){D.vn[$('#l').value]=$('#vsel').value;D.rt=+$('#rt').value||1;D.s=$('#sf').value==='1';D.bg=$('#bgs').value==='1'}
 $('#tv').onclick=()=>{unlock();ac();applyVoice();speak($('#l').value==='ur-PK'?'السلام علیکم، میں زینٹری گیم میکر ہوں۔ بتائیں کیا بنانا ہے؟':'Hello, I am Zantry Game Maker. Tell me what you want to build.')};
-$('#ok').onclick=()=>{D.pv=$('#pv').value;D.kk[D.pv]=$('#k').value.trim();D.mm[D.pv]=$('#m').value.trim()||DEF[D.pv];D.k='';D.l=$('#l').value;D.th=$('#th').value;document.documentElement.dataset.t=D.th;bgColors();applyVoice();save();stopSpeak();$('#dlg').close();idle();sfx('done')};
+$('#ok').onclick=()=>{D.pv=$('#pv').value;D.kk[D.pv]=$('#k').value.trim();D.mm[D.pv]=$('#m').value.trim()||DEF[D.pv];D.k='';D.l=$('#l').value;D.ve=$('#ve').value;D.wm=$('#wm').value;D.lq=$('#lq').value;D.th=$('#th').value;document.documentElement.dataset.t=D.th;bgColors();applyVoice();save();stopSpeak();$('#dlg').close();idle();sfx('done')};
 $('#undo').onclick=()=>{const p=cur();if(p&&p.v.length){p.h=p.v.pop();save();show(p.h);toast('Undone')}};
 addEventListener('error',()=>{});addEventListener('unhandledrejection',e=>{try{e.preventDefault()}catch(x){}});
 addEventListener('message',e=>{const z=e.data&&e.data.zerr;if(!z||!watchOn||e.source!==$('#fr').contentWindow)return;watchOn=false;if(repairLeft>0&&!busy){repairLeft--;send('',{auto:String(z).slice(0,300)})}});
@@ -485,9 +490,10 @@ async function gAuth(url,opt){const modes=D.am==='q'?['q','h']:['h','q'];let las
   if(r.status!==401&&r.status!==403){D.am=m;return r}last=r}
  return last}
 $('#tc').onclick=async()=>{D.pv=$('#pv').value;shownPv=D.pv;D.kk[D.pv]=$('#k').value.trim();D.mm[D.pv]=$('#m').value.trim()||DEF[D.pv];
- const v=$('#vs');if(!KEY()){v.textContent='✗ Paste your key first.';return}v.textContent='Testing connection…';
+ const v=$('#vs');if(D.pv!=='local'&&!KEY()){v.textContent='✗ Paste your key first.';return}v.textContent='Testing connection…';
  try{
-  if(D.pv==='gemini'){
+  if(D.pv==='local'){if(!navigator.gpu)throw new Error('This browser/phone has no WebGPU. Use Chrome on a recent phone.');await libWL();v.textContent='✓ Your phone can run on-device AI. The model downloads on your first message. Tap Save.';sfx('done')}
+  else if(D.pv==='gemini'){
    const r=await gAuth('https://generativelanguage.googleapis.com/v1beta/models?pageSize=100',{method:'GET',headers:{}});const t=await r.text();
    if(!r.ok)throw new Error(r.status+': '+errmsg(t));
    const names=(JSON.parse(t).models||[]).filter(m=>(m.supportedGenerationMethods||[]).includes('generateContent')).map(m=>m.name.replace('models/',''));
@@ -502,25 +508,26 @@ $('#tc').onclick=async()=>{D.pv=$('#pv').value;shownPv=D.pv;D.kk[D.pv]=$('#k').v
 async function wake(){try{if(navigator.wakeLock)wl=await navigator.wakeLock.request('screen')}catch(e){}}
 function unwake(){try{wl&&wl.release()}catch(e){}wl=null}
 function micFatal(){stopAll();toast('Microphone is blocked. Allow mic access in browser settings, then try again.',7000);sfx('err')}
-function stopAll(abortBuild){mode=null;stopping=false;clearInterval(tmr);unwake();callRun=false;
+function stopAll(abortBuild){mode=null;if(OV.active)ovStop();stopping=false;clearInterval(tmr);unwake();callRun=false;
  $('#call').classList.remove('on');$('#mic').classList.remove('on');
  if(rec)try{rec.abort()}catch(e){}
  if(abortBuild&&ctrl)try{ctrl.abort()}catch(e){}
  stopSpeak();rest()}
 function talkUi(){const s=Math.floor((Date.now()-recT)/1000),w=(total+sess).split(/\s+/).filter(Boolean).length;
- st('listen',`🎙 ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')} · ${w} words · tap to finish`)}
-function talkStart(){mode='talk';total='';sess='';stopping=false;recT=Date.now();$('#mic').classList.add('on');sfx('start');buzz(15);wake();clearInterval(tmr);tmr=setInterval(talkUi,500);talkUi();talkRun()}
+ st('listen',`🎙 ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')} · ${w} words${OV.active&&OV.pending?' · writing…':''} · tap to finish`)}
+function talkStart(){mode='talk';total='';sess='';stopping=false;recT=Date.now();$('#mic').classList.add('on');sfx('start');buzz(15);wake();clearInterval(tmr);tmr=setInterval(talkUi,500);talkUi();if(useOV())startOV('talk');else talkRun()}
 function talkRun(){if(mode!=='talk')return;
  rec=new SR();rec.lang=D.l;rec.interimResults=true;rec.continuous=true;
  rec.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript+' ';sess=t};
  rec.onerror=e=>{if(/not-allowed|service-not-allowed/.test(e.error))micFatal()};
  rec.onend=()=>{if(sess.trim())total+=sess.trim()+' ';sess='';if(mode==='talk'&&!stopping)setTimeout(talkRun,150);else if(stopping)talkFinish()};
  try{rec.start()}catch(e){setTimeout(talkRun,400)}}
-function talkStop(){stopping=true;try{rec.stop()}catch(e){talkFinish()}setTimeout(()=>{if(mode==='talk')talkFinish()},1500)}
+function talkStop(){stopping=true;if(useOV()){ovStop().then(talkFinish);return}try{rec.stop()}catch(e){talkFinish()}setTimeout(()=>{if(mode==='talk')talkFinish()},1500)}
 function talkFinish(){if(mode!=='talk')return;const txt=(total+sess).trim();mode=null;stopping=false;clearInterval(tmr);unwake();$('#mic').classList.remove('on');sfx('stop');
  if(txt)enqueue(txt);else{idle('I did not hear anything. Try again.')}}
 function callStart(){mode='call';callRun=false;$('#call').classList.add('on');sfx('start');buzz(15);wake();buildMusic(false);callListen()}
 function callListen(){if(mode!=='call'||speaking||callRun)return;
+ if(useOV()){if(!OV.active)startOV('call');return}
  let fin='';rec=new SR();rec.lang=D.l;rec.interimResults=true;rec.continuous=false;callRun=true;
  rec.onstart=()=>{if(!speaking)st('listen',busy?'Building… keep talking':'Listening…')};
  rec.onresult=e=>{let t='';for(const r of e.results)t+=r[0].transcript;fin=t;$('#cap').textContent=t};
@@ -539,18 +546,25 @@ $('#pill').onclick=()=>{if(failed&&!busy){const t=failed;failed='';enqueue(t)}};
 function gameOf(t){const i=t.indexOf('<game>');if(i<0)return null;let s=t.slice(i+6);const e=s.indexOf('</game>');if(e>=0)s=s.slice(0,e);return s.replace(/^\s*```(?:html)?\s*/,'').replace(/```\s*$/,'')}
 const mkErr=(s,m)=>{const e=new Error(m);e.status=s;return e};
 const friendly=e=>{const s=e.status,m=e.message||'';
+ if(s==='local')return m;
  if(s===401||s===403)return 'Your API key was not accepted. Open Settings and tap Test connection.';
  if(s===429)return 'The free limit is reached. Wait a minute, then tap here to retry.';
+ if(s===404)return 'This AI model is not available for your key. Open Settings and tap Test connection.';
+ if(s===413)return 'Too many or too large attached files. Remove some and tap here to retry.';
  if(s===400)return 'The AI could not process that: '+m.slice(0,140);
  if(e instanceof TypeError)return 'No internet connection. Check it, then tap here to retry.';
- return 'The AI is busy right now. Tap here to retry.'};
+ if(s>=500)return 'Google AI servers are overloaded right now ('+s+'). Wait a minute, then tap here to retry.';
+ return 'AI error '+(s||'')+': '+m.slice(0,100)+' Tap here to retry.'};
 async function aiOnce(msgs,sys,cb,atts){
- let r,trunc=false,any=false;const has=atts&&atts.length,last=msgs.length-1;
+ if(D.pv==='local')return await localOnce(msgs,sys,cb,atts);
+ let r,trunc=false,any=false,nf=false,blocked='',fr='';const has=atts&&atts.length,last=msgs.length-1;
  if(D.pv==='gemini'){
   const body=JSON.stringify({systemInstruction:{parts:[{text:sys}]},contents:msgs.map((m,i)=>({role:m.role==='user'?'user':'model',parts:(has&&i===last)?gParts(m,atts):[{text:m.content}]})),generationConfig:{maxOutputTokens:48000}});
   for(const mdl of [MODEL(),...GFB.filter(x=>x!==MODEL())]){
    r=await gAuth('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(mdl)+':streamGenerateContent?alt=sse',{method:'POST',signal:ctrl.signal,headers:{'content-type':'application/json'},body});
-   if(r.status!==404){if(r.ok&&mdl!==MODEL())D.mm.gemini=mdl;break}}
+   if(r.ok||(r.status!==404&&r.status!==429&&r.status<500))break;
+   if(r.status===404)nf=true}
+  if(r.ok&&nf&&r.url&&r.url.indexOf('/models/')>0){const mm=decodeURIComponent((r.url.split('/models/')[1]||'').split(':')[0]);if(mm&&mm!==MODEL())D.mm.gemini=mm}
  }else{
   r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',signal:ctrl.signal,headers:{'content-type':'application/json','x-api-key':KEY(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
    body:JSON.stringify({model:MODEL(),max_tokens:32000,stream:true,system:sys,messages:msgs.map((m,i)=>(has&&i===last)?{role:m.role,content:aParts(m,atts)}:m)})})}
@@ -559,10 +573,11 @@ async function aiOnce(msgs,sys,cb,atts){
  while(true){const{done,value}=await rd.read();if(done)break;buf+=dc.decode(value,{stream:true});
   const ls=buf.split('\n');buf=ls.pop();
   for(const l of ls){if(!l.startsWith('data:'))continue;let j;try{j=JSON.parse(l.slice(5))}catch(e){continue}
+   if(j.promptFeedback&&j.promptFeedback.blockReason)blocked=j.promptFeedback.blockReason;
    if(j.type==='content_block_delta'&&j.delta&&j.delta.text){any=true;cb(j.delta.text)}
    else if(j.type==='message_delta'&&j.delta&&j.delta.stop_reason==='max_tokens')trunc=true;
-   else if(j.candidates&&j.candidates[0]){const c=j.candidates[0];for(const pt of(c.content&&c.content.parts)||[])if(pt.text){any=true;cb(pt.text)}if(c.finishReason==='MAX_TOKENS')trunc=true}}}
- if(!any)throw mkErr(503,'empty');
+   else if(j.candidates&&j.candidates[0]){const c=j.candidates[0];for(const pt of(c.content&&c.content.parts)||[])if(pt.text){any=true;cb(pt.text)}if(c.finishReason==='MAX_TOKENS')trunc=true;if(c.finishReason)fr=c.finishReason}}}
+ if(!any){if(blocked||/SAFETY|RECITATION|PROHIBITED|BLOCK/.test(fr))throw mkErr(400,'The AI refused or filtered this request ('+(blocked||fr)+'). Try rewording it.');throw mkErr(503,'empty reply')}
  return{trunc}}
 async function aiStream(msgs,sys,cb,atts){let got=false;const cb2=t=>{got=true;cb(t)};
  for(let a=0;;a++){
@@ -584,8 +599,8 @@ async function send(text,o){
  st(mode==='call'?'listen':'think',o.auto?'Polishing…':'Building…');if(!o.auto){sfx('think');buildMusic(true)}
  await loadRefs(p);
  let acc='',last=0,say='',sp=Promise.resolve(),spoken=false,errText='',g=null;const seen={},said={};ctrl=new AbortController();
- const hist=p.m.slice(-10).map((m,i,a)=>({role:m.role,content:i===a.length-1?m.content:m.content.slice(0,3000)}));while(hist[0]&&hist[0].role!=='user')hist.shift();
- const prev=p.h,sys=SYS(p)+refNote()+'\n\nCURRENT FILE:\n'+(p.h||'(empty, nothing built yet)'),live=()=>cur()===p,atts=R.list.slice();
+ const lo=D.pv==='local',hist=p.m.slice(lo?-4:-10).map((m,i,a)=>({role:m.role,content:i===a.length-1?m.content:m.content.slice(0,lo?1200:3000)}));while(hist[0]&&hist[0].role!=='user')hist.shift();
+ const prev=p.h,sys=lo?SYS_LOCAL(p)+(prev&&prev.length<=6000?'\n\nCURRENT FILE:\n'+prev:prev?'\n\nA larger game already exists. Build one complete new version of the game the user describes.':''):SYS(p)+refNote()+'\n\nCURRENT FILE:\n'+(p.h||'(empty, nothing built yet)'),live=()=>cur()===p,atts=R.list.slice();
  if(live())$('#dev').classList.add('live');
  const cb=t=>{acc+=t;if(!spoken&&!o.auto){const m=acc.match(/<say>([\s\S]*?)<\/say>/);if(m){spoken=true;say=m[1].trim();sp=speak(say)}}};
  const tick=setInterval(()=>{const x=gameOf(acc);if(x===null||x.length===last)return;last=x.length;if(live())show(x);sfx('build');
@@ -604,7 +619,7 @@ async function send(text,o){
   if(!spoken&&!o.auto){const m=acc.match(/<say>([\s\S]*?)(<\/say>|$)/);say=m&&m[1].trim()?m[1].trim():(D.l==='ur-PK'?'ہو گیا۔':'Done.');sp=speak(say)}
   p.m.push({role:'assistant',content:say||'OK',auto:!!o.auto});failed='';sfx('done');buzz([20,40,20]);
  }catch(e){clearInterval(tick);p.m.pop();
-  if(e.name!=='AbortError'){errText=friendly(e);sfx('err');failed=o.auto?'':ut;sp=o.auto?Promise.resolve():speak(D.l==='ur-PK'?'معذرت، دوبارہ کوشش کریں۔':'Sorry, please try again.');toast(errText,9000)}}
+  if(e.name!=='AbortError'){errText=friendly(e);sfx('err');failed=o.auto?'':ut;sp=o.auto?Promise.resolve():speak(D.l==='ur-PK'?'معذرت، دوبارہ کوشش کریں۔':'Sorry, please try again.',true);toast(errText,9000)}}
  busy=false;buildMusic(false);save();$('#dev').classList.remove('live');renderChat();
  if(g&&!errText){const se=jsErr(g);if(se&&repairLeft>0){repairLeft--;send('',{auto:'SyntaxError: '+se});return}}
  if(g&&!errText){watchOn=true;setTimeout(()=>{watchOn=false},6000)}
@@ -612,6 +627,68 @@ async function send(text,o){
  await sp;
  if(!errText&&!o.auto){const m2=acc.match(/<say2>([\s\S]*?)<\/say2>/);if(m2&&m2[1].trim())await speak(m2[1].trim())}
  rest();if(errText)st('',errText.slice(0,70))}
+
+/* ---------- On-device AI (no key) ---------- */
+const lerr=m=>{const e=new Error(m);e.status='local';return e};
+let WL=null,LLM=null,LLMId='';
+async function libWL(){if(WL)return WL;try{WL=await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm/+esm')}catch(e){throw lerr('Could not load the on-device AI library. Connect to the internet once, then try again.')}return WL}
+async function loadLocal(){
+ if(!navigator.gpu)throw lerr('This browser or phone does not support WebGPU, which on-device AI needs. Use Chrome on a newer phone, or switch to Gemini or Claude.');
+ const W=await libWL(),ids=W.prebuiltAppConfig.model_list.map(m=>m.model_id);
+ const pref={'1.5':[/Qwen2\.5-Coder-1\.5B-Instruct-q4f16_1/,/Qwen2\.5-1\.5B-Instruct-q4f16_1/,/Llama-3\.2-1B-Instruct-q4f16_1/],'3':[/Qwen2\.5-Coder-3B-Instruct-q4f16_1/,/Qwen3-4B-q4f16_1/,/Llama-3\.2-3B-Instruct-q4f16_1/,/Qwen2\.5-3B-Instruct-q4f16_1/],'7':[/Qwen2\.5-Coder-7B-Instruct-q4f16_1/,/Qwen3-8B-q4f16_1/,/Llama-3\.1-8B-Instruct-q4f16_1/]}[D.lq||'3']||[];
+ let id=(D.mm.local&&D.mm.local!=='auto'&&ids.includes(D.mm.local))?D.mm.local:null;
+ if(!id)for(const rx of pref){id=ids.find(x=>rx.test(x));if(id)break}
+ if(!id)id=ids.find(x=>/q4f16_1/.test(x))||ids[0];
+ if(LLM&&LLMId===id)return LLM;
+ if(!D.llmOk){const go=await ask('Download the on-device AI?','This downloads a model once (about 1 to 5 GB depending on the size). Use Wi-Fi. After that it needs no key and has no usage limits.');if(!go)throw lerr('The on-device AI download was cancelled.');D.llmOk=1;save()}
+ st('think','Loading on-device AI… 0%');
+ try{LLM=await W.CreateMLCEngine(id,{initProgressCallback:p=>{st('think','Loading on-device AI… '+Math.round((p.progress||0)*100)+'%')}});LLMId=id}
+ catch(e){LLM=null;throw lerr('The on-device AI could not start ('+String(e&&e.message||e).slice(0,90)+'). The phone may lack memory; try the Light size.')}
+ return LLM}
+const SYS_LOCAL=p=>{const comp=p.d==='computer',port=p.o==='portrait';
+ const dev=comp?'a computer game, 16:10 window, keyboard and mouse controls':'a mobile game, '+(port?'portrait':'landscape')+', touch controls';
+ return `You are ZantryGameMaker. Build the game the user asks for as ONE complete HTML file (${dev}). Rules: self-contained; <style> first, then body, then <script> last; canvas fills the window (innerWidth/innerHeight) and handles resize; touch and keyboard controls; start screen, score, game over and restart; colorful modern look with gradients, glow and particles; simple WebAudio sounds started after the first tap; no external files or libraries; wrap localStorage in try/catch; no alert or prompt. Keep the code compact (under about 250 lines) but complete and bug-free: check brackets and variable names.
+OUTPUT exactly:
+<say>one short sentence in the user's language</say>
+<game>
+the full HTML file
+</game>
+<say2>one short sentence</say2>`};
+async function localOnce(msgs,sys,cb,atts){const eng=await loadLocal();let any=false,trunc=false;
+ const L=msgs.map(m=>({role:m.role,content:m.content}));
+ if(atts&&atts.length){const tx=atts.filter(a=>a.kind==='text').map(a=>'[File "'+a.name+'"]\n'+a.text.slice(0,2500)).join('\n\n');if(tx)L[L.length-1].content=tx+'\n\n'+L[L.length-1].content}
+ const stp=()=>{try{eng.interruptGenerate()}catch(e){}};ctrl.signal.addEventListener('abort',stp);
+ try{const it=await eng.chat.completions.create({messages:[{role:'system',content:sys}].concat(L),stream:true,max_tokens:3500,temperature:.5});
+  for await(const ch of it){const c=ch.choices&&ch.choices[0];if(!c)continue;const t=c.delta&&c.delta.content;if(t){any=true;cb(t)}if(c.finish_reason==='length')trunc=true}}
+ catch(e){if(ctrl.signal.aborted){const x=new Error('aborted');x.name='AbortError';throw x}if(any)return{trunc:true};throw lerr('The on-device AI stopped: '+String(e&&e.message||e).slice(0,100))}
+ finally{ctrl.signal.removeEventListener('abort',stp)}
+ if(!any)throw lerr('The on-device AI returned nothing. Try again.');return{trunc}}
+
+/* ---------- Own voice input (Whisper on this phone) ---------- */
+const useOV=()=>D.ve==='whisper';
+const OV={asr:null,asrId:'',loading:null,ctx:null,stream:null,node:null,sr:48000,active:false,onText:null,pre:[],buf:[],len:0,voiced:false,sil:0,noise:.01,q:Promise.resolve(),pending:0};
+function ovLoad(){if(OV.asr&&OV.asrId===D.wm)return Promise.resolve(OV.asr);if(OV.loading&&OV.loadId===D.wm)return OV.loading;OV.loadId=D.wm;
+ OV.loading=(async()=>{let T;try{T=await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers/+esm')}catch(e){throw lerr('Could not load the voice library. Connect to the internet once, then try again.')}
+  try{OV.asr=await T.pipeline('automatic-speech-recognition',D.wm,{progress_callback:p=>{if(p&&p.status==='progress')st('think','Downloading voice model '+Math.round(p.progress||0)+'%')}})}catch(e){throw lerr('Could not start the voice model. Try the Tiny size or Browser voice.')}
+  OV.asrId=D.wm;return OV.asr})().catch(e=>{OV.loading=null;throw e});return OV.loading}
+function rs16(a,sr){if(sr===16000)return a;const r=sr/16000,n=Math.floor(a.length/r),o=new Float32Array(n);for(let i=0;i<n;i++){const x=i*r,i0=Math.floor(x),f=x-i0;o[i]=a[i0]*(1-f)+(a[i0+1]===undefined?a[i0]:a[i0+1])*f}return o}
+function ovCut(sr){const n=OV.len,a=new Float32Array(n);let o=0;for(const b of OV.buf){a.set(b,o);o+=b.length}OV.buf=[];OV.len=0;OV.voiced=false;OV.sil=0;OV.pre=[];
+ if(n/sr<.5)return;const a16=rs16(a,sr);OV.pending++;
+ OV.q=OV.q.then(async()=>{try{const asr=await ovLoad(),out=await asr(a16,{language:D.l==='ur-PK'?'urdu':'english',task:'transcribe'}),t=String(out&&out.text||'').trim();if(t.length>1&&OV.onText)OV.onText(t)}
+  catch(e){toast(e&&e.status==='local'?e.message:'Voice model error. Try the Tiny size or Browser voice.',6000)}finally{OV.pending--}})}
+function ovFeed(d,sr){if(!OV.active||speaking)return;let s=0;for(let i=0;i<d.length;i++)s+=d[i]*d[i];
+ const rms=Math.sqrt(s/d.length),dur=d.length/sr,thr=Math.max(.014,OV.noise*3.2),c=new Float32Array(d);
+ if(rms>thr){if(!OV.voiced){OV.voiced=true;OV.buf=OV.pre.slice();OV.len=OV.buf.reduce((x,b)=>x+b.length,0)}OV.sil=0}else{if(!OV.voiced)OV.noise=OV.noise*.95+rms*.05;else OV.sil+=dur}
+ if(OV.voiced){OV.buf.push(c);OV.len+=c.length;if(OV.sil>.9||OV.len/sr>25)ovCut(sr)}else{OV.pre.push(c);if(OV.pre.length>3)OV.pre.shift()}}
+async function ovStart(){OV.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+ OV.ctx=new(window.AudioContext||window.webkitAudioContext)();try{await OV.ctx.resume()}catch(e){}OV.sr=OV.ctx.sampleRate;
+ const src=OV.ctx.createMediaStreamSource(OV.stream),n=OV.ctx.createScriptProcessor(4096,1,1),z=OV.ctx.createGain();z.gain.value=0;OV.node=n;
+ OV.pre=[];OV.buf=[];OV.len=0;OV.voiced=false;OV.sil=0;OV.active=true;n.onaudioprocess=e=>ovFeed(e.inputBuffer.getChannelData(0),OV.sr);src.connect(n);n.connect(z);z.connect(OV.ctx.destination)}
+async function ovStop(){const was=OV.active;OV.active=false;try{OV.node&&OV.node.disconnect()}catch(e){}try{OV.stream&&OV.stream.getTracks().forEach(t=>t.stop())}catch(e){}
+ if(was&&OV.voiced)ovCut(OV.sr);try{OV.ctx&&OV.ctx.close()}catch(e){}OV.ctx=null;OV.node=null;OV.stream=null;await OV.q}
+function startOV(kind){OV.onText=kind==='talk'?(t=>{total+=t+' '}):(t=>{$('#cap').textContent=t;enqueue(t)});
+ ovStart().then(()=>{if(kind==='call')st('listen','Listening…')}).catch(e=>{stopAll();toast(e&&e.name==='NotAllowedError'?'Microphone is blocked. Allow mic access and try again.':'Could not start the microphone.',6000)});
+ ovLoad().catch(e=>toast(e.message,7000))}
 
 /* ---------- Studio tools: edit without AI ---------- */
 let tab='tw',dirty=false;
