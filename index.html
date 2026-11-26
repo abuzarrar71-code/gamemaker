@@ -531,7 +531,7 @@ function talkRun(){if(mode!=='talk')return;
  rec.onerror=e=>{if(/not-allowed|service-not-allowed/.test(e.error))micFatal()};
  rec.onend=()=>{if(sess.trim())total+=sess.trim()+' ';sess='';if(mode==='talk'&&!stopping)setTimeout(talkRun,150);else if(stopping)talkFinish()};
  try{rec.start()}catch(e){setTimeout(talkRun,400)}}
-function talkStop(){stopping=true;if(useOV()){ovStop().then(talkFinish);return}try{rec.stop()}catch(e){talkFinish()}setTimeout(()=>{if(mode==='talk')talkFinish()},1500)}
+function talkStop(){stopping=true;if(useOV()){st('think','Finishing…');$('#mic').classList.remove('on');ovStop().then(talkFinish);return}try{rec.stop()}catch(e){talkFinish()}setTimeout(()=>{if(mode==='talk')talkFinish()},1500)}
 function talkFinish(){if(mode!=='talk')return;const txt=(total+sess).trim();mode=null;stopping=false;clearInterval(tmr);unwake();$('#mic').classList.remove('on');sfx('stop');
  if(txt)enqueue(txt);else{idle('I did not hear anything. Try again.')}}
 function callStart(){mode='call';callRun=false;$('#call').classList.add('on');sfx('start');buzz(15);wake();buildMusic(false);callListen()}
@@ -609,7 +609,7 @@ async function send(text,o){
  await loadRefs(p);
  let acc='',last=0,say='',sp=Promise.resolve(),spoken=false,errText='',g=null;const seen={},said={};ctrl=new AbortController();
  const lo=PV()==='local',hist=p.m.slice(lo?-4:-10).map((m,i,a)=>({role:m.role,content:i===a.length-1?m.content:m.content.slice(0,lo?1200:3000)}));while(hist[0]&&hist[0].role!=='user')hist.shift();
- const prev=p.h,sys=lo?SYS_LOCAL(p)+(prev&&prev.length<=6000?'\n\nCURRENT FILE:\n'+prev:prev?'\n\nA larger game already exists. Build one complete new version of the game the user describes.':''):SYS(p)+refNote()+'\n\nCURRENT FILE:\n'+(p.h||'(empty, nothing built yet)'),live=()=>cur()===p,atts=R.list.slice();
+ const prev=p.h,sys=lo?SYS_LOCAL(p)+(prev&&prev.length<=3500?'\n\nCURRENT FILE:\n'+prev:prev?'\n\nA larger game already exists. Build one complete new version of the game the user describes.':''):SYS(p)+refNote()+'\n\nCURRENT FILE:\n'+(p.h||'(empty, nothing built yet)'),live=()=>cur()===p,atts=R.list.slice();
  if(live())$('#dev').classList.add('live');
  const cb=t=>{acc+=t;if(!spoken&&!o.auto){const m=acc.match(/<say>([\s\S]*?)<\/say>/);if(m){spoken=true;say=m[1].trim();sp=speak(say)}}};
  const tick=setInterval(()=>{const x=gameOf(acc);if(x===null||x.length-last<400)return;last=x.length;if(live())show(x);sfx('build');
@@ -619,7 +619,7 @@ async function send(text,o){
   if(!speaking)st(mode==='call'?'listen':'think',(PH[ph]||'Building')+' · '+lines+' lines')},2000);
  try{
   let tr=true,round=0;
-  while(tr&&round<4){const mm=round?hist.concat([{role:'assistant',content:acc},{role:'user',content:'Continue EXACTLY where you stopped. Output only the remaining text, no repetition, no preamble.'}]):hist;
+  while(tr&&round<(lo?1:4)){const mm=round?hist.concat([{role:'assistant',content:acc},{role:'user',content:'Continue EXACTLY where you stopped. Output only the remaining text, no repetition, no preamble.'}]):hist;
    const r=await aiStream(mm,sys,cb,round?null:atts);tr=r.trunc;round++}
   clearInterval(tick);
   g=gameOf(acc);
@@ -639,7 +639,7 @@ async function send(text,o){
 
 /* ---------- On-device AI (no key) ---------- */
 const lerr=m=>{const e=new Error(m);e.status='local';return e};
-let WL=null,LLM=null,LLMId='',PROGCB=null;const prog=t=>{st('think',t);if(PROGCB)PROGCB(t)};
+let WL=null,LLM=null,LLMId='',PROGCB=null,ENGW=null,LLMP=null;const prog=t=>{st('think',t);if(PROGCB)PROGCB(t)};
 async function libWL(){if(WL)return WL;try{WL=await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm/+esm')}catch(e){throw lerr('Could not load the on-device AI library. Connect to the internet once, then try again.')}return WL}
 const PREF={'1.5':[/Qwen2\.5-Coder-1\.5B-Instruct-q4f16_1/,/Qwen2\.5-1\.5B-Instruct-q4f16_1/,/Llama-3\.2-1B-Instruct-q4f16_1/],'3':[/Qwen2\.5-Coder-3B-Instruct-q4f16_1/,/Qwen3-4B-q4f16_1/,/Llama-3\.2-3B-Instruct-q4f16_1/,/Qwen2\.5-3B-Instruct-q4f16_1/],'7':[/Qwen2\.5-Coder-7B-Instruct-q4f16_1/,/Qwen3-8B-q4f16_1/,/Llama-3\.1-8B-Instruct-q4f16_1/]};
 function pickId(ids,q){if(q===(D.lq||'3')&&D.mm.local&&D.mm.local!=='auto'&&ids.includes(D.mm.local))return D.mm.local;for(const rx of PREF[q]||[]){const id=ids.find(x=>rx.test(x));if(id)return id}return null}
@@ -651,9 +651,11 @@ async function mkEngine(W,id,opts){
    await new Promise((res,rej)=>{const t=setTimeout(()=>rej(new Error('timeout')),12000);wk.onerror=()=>{clearTimeout(t);rej(new Error('werr'))};
     const on=e=>{if(e.data&&e.data.zready){clearTimeout(t);wk.removeEventListener('message',on);res()}else if(e.data&&e.data.zfail){clearTimeout(t);rej(new Error('fail'))}};wk.addEventListener('message',on)})}
   catch(e){try{wk&&wk.terminate()}catch(x){}wk=null}}
- if(wk)return await W.CreateWebWorkerMLCEngine(wk,id,opts);
+ if(wk){ENGW=wk;return await W.CreateWebWorkerMLCEngine(wk,id,opts)}
  return await W.CreateMLCEngine(id,opts)}
-async function loadLocal(){
+function resetEngine(){try{ENGW&&ENGW.terminate()}catch(e){}ENGW=null;LLM=null;LLMId=''}
+function loadLocal(){if(!LLMP)LLMP=loadLocal0().finally(()=>{LLMP=null});return LLMP}
+async function loadLocal0(){
  if(!navigator.gpu)throw lerr('This browser or phone does not support WebGPU, which on-device AI needs. Use Chrome on a newer phone, or switch to Gemini or Claude.');
  const W=await libWL(),ids=W.prebuiltAppConfig.model_list.map(m=>m.model_id);
  let order=['7','3','1.5'];order=order.slice(Math.max(0,order.indexOf(D.lq||'3')));
@@ -668,31 +670,37 @@ async function loadLocal(){
  throw lerr('The on-device AI could not start ('+last+'). Close other apps and try again, or use the Light size.')}
 const SYS_LOCAL=p=>{const comp=p.d==='computer',port=p.o==='portrait';
  const dev=comp?'a computer game, 16:10 window, keyboard and mouse controls':'a mobile game, '+(port?'portrait':'landscape')+', touch controls';
- return `You are ZantryGameMaker. Build the game the user asks for as ONE complete HTML file (${dev}). Rules: self-contained; <style> first, then body, then <script> last; canvas fills the window (innerWidth/innerHeight) and handles resize; touch and keyboard controls; start screen, score, game over and restart; colorful modern look with gradients, glow and particles; simple WebAudio sounds started after the first tap; no external files or libraries; wrap localStorage in try/catch; no alert or prompt. Keep the code compact (under about 250 lines) but complete and bug-free: check brackets and variable names.
+ return `You are ZantryGameMaker. Build the game the user asks for as ONE complete HTML file (${dev}). Rules: self-contained; <style> first, then body, then <script> last; canvas fills the window (innerWidth/innerHeight) and handles resize; touch and keyboard controls; start screen, score, game over and restart; colorful modern look with gradients, glow and particles; simple WebAudio sounds started after the first tap; no external files or libraries; wrap localStorage in try/catch; no alert or prompt. Keep the code compact (under about 150 lines) but complete and bug-free: check brackets and variable names.
 OUTPUT exactly:
 <say>one short sentence in the user's language</say>
 <game>
 the full HTML file
 </game>
 <say2>one short sentence</say2>`};
-async function localOnce(msgs,sys,cb,atts){const eng=await loadLocal();let any=false,trunc=false;
+async function localOnce(msgs,sys,cb,atts,tries){tries=tries||0;const eng=await loadLocal();let any=false,trunc=false;
  const L=msgs.map(m=>({role:m.role,content:m.content}));
  if(atts&&atts.length){const tx=atts.filter(a=>a.kind==='text').map(a=>'[File "'+a.name+'"]\n'+a.text.slice(0,2500)).join('\n\n');if(tx)L[L.length-1].content=tx+'\n\n'+L[L.length-1].content}
  const stp=()=>{try{eng.interruptGenerate()}catch(e){}};ctrl.signal.addEventListener('abort',stp);
- try{const it=await eng.chat.completions.create({messages:[{role:'system',content:sys}].concat(L),stream:true,max_tokens:3500,temperature:.5});
+ try{try{await eng.resetChat()}catch(e){}
+  const it=await eng.chat.completions.create({messages:[{role:'system',content:sys}].concat(L),stream:true,max_tokens:2400,temperature:.5});
   for await(const ch of it){const c=ch.choices&&ch.choices[0];if(!c)continue;const t=c.delta&&c.delta.content;if(t){any=true;cb(t)}if(c.finish_reason==='length')trunc=true}}
- catch(e){if(ctrl.signal.aborted){const x=new Error('aborted');x.name='AbortError';throw x}if(any)return{trunc:true};throw lerr('The on-device AI stopped: '+String(e&&e.message||e).slice(0,100))}
+ catch(e){if(ctrl.signal.aborted){const x=new Error('aborted');x.name='AbortError';throw x}if(any)return{trunc:true};
+  const m=String(e&&e.message||e);
+  if(tries<2&&/disposed|device|lost|gpu|memory|valid|buffer/i.test(m)){resetEngine();D.lq=({'7':'3','3':'1.5'})[D.lq]||'1.5';save();toast('The phone graphics chip stopped. Reloading a lighter AI…',6000);return await localOnce(msgs,sys,cb,atts,tries+1)}
+  throw lerr('The on-device AI stopped: '+m.slice(0,90)+'. Try the Light size in Settings.')}
  finally{ctrl.signal.removeEventListener('abort',stp)}
  if(!any)throw lerr('The on-device AI returned nothing. Try again.');return{trunc}}
 
 /* ---------- Own voice input (Whisper on this phone) ---------- */
 const useOV=()=>D.ve==='whisper'||(!navigator.onLine&&!!D.packOk);
+let OVWAIT=25000;
 const OV={asr:null,asrId:'',loading:null,ctx:null,stream:null,node:null,sr:48000,active:false,onText:null,pre:[],buf:[],len:0,voiced:false,sil:0,noise:.01,q:Promise.resolve(),pending:0};
 function ovLoad(){if(OV.asr&&OV.asrId===D.wm)return Promise.resolve(OV.asr);if(OV.loading&&OV.loadId===D.wm)return OV.loading;OV.loadId=D.wm;
  OV.loading=(async()=>{let T;try{T=await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers/+esm')}catch(e){throw lerr('Could not load the voice library. Connect to the internet once, then try again.')}
-  try{T.env.backends.onnx.wasm.proxy=true}catch(e){}
-  try{const rt=D.dlx[D.wm]&&await rootDir(false);if(rt&&(await fileSize(rt,'whisper/'+D.wm+'/.zdone'))>=0){T.env.allowLocalModels=true;T.env.localModelPath=new URL('zserve/whisper/',location.href).href;T.env.useBrowserCache=false}}catch(e){}
-  try{OV.asr=await T.pipeline('automatic-speech-recognition',D.wm,{progress_callback:p=>{if(p&&p.status==='progress')prog('Downloading voice model '+Math.round(p.progress||0)+'%')}})}catch(e){throw lerr('Could not start the voice model. Try the Tiny size or Browser voice.')}
+  try{const rt=D.dlx[D.wm]&&await rootDir(false);if(rt&&(await fileSize(rt,'whisper/'+D.wm+'/.zdone'))>=0){T.env.allowLocalModels=true;T.env.localModelPath=new URL('zserve/whisper/',location.href).pathname;T.env.useBrowserCache=false}}catch(e){}
+  try{OV.asr=await new Promise((res,rej)=>{let wd;const arm=()=>{clearTimeout(wd);wd=setTimeout(()=>rej(new Error('timeout')),90000)};arm();
+    T.pipeline('automatic-speech-recognition',D.wm,{progress_callback:p=>{arm();if(p&&p.status==='progress')prog('Loading voice model… '+Math.round(p.progress||0)+'%')}}).then(x=>{clearTimeout(wd);res(x)}).catch(e=>{clearTimeout(wd);rej(e)})})}
+  catch(e){throw lerr(e&&e.message==='timeout'?'The voice model took too long to start. Try the Tiny voice model, or download it again.':'Could not start the voice model. Try the Tiny voice model or Browser voice.')}
   OV.asrId=D.wm;return OV.asr})().catch(e=>{OV.loading=null;throw e});return OV.loading}
 function rs16(a,sr){if(sr===16000)return a;const r=sr/16000,n=Math.floor(a.length/r),o=new Float32Array(n);for(let i=0;i<n;i++){const x=i*r,i0=Math.floor(x),f=x-i0;o[i]=a[i0]*(1-f)+(a[i0+1]===undefined?a[i0]:a[i0+1])*f}return o}
 function ovCut(sr){const n=OV.len,a=new Float32Array(n);let o=0;for(const b of OV.buf){a.set(b,o);o+=b.length}OV.buf=[];OV.len=0;OV.voiced=false;OV.sil=0;OV.pre=[];
@@ -708,10 +716,12 @@ async function ovStart(){OV.stream=await navigator.mediaDevices.getUserMedia({au
  const src=OV.ctx.createMediaStreamSource(OV.stream),n=OV.ctx.createScriptProcessor(4096,1,1),z=OV.ctx.createGain();z.gain.value=0;OV.node=n;
  OV.pre=[];OV.buf=[];OV.len=0;OV.voiced=false;OV.sil=0;OV.active=true;n.onaudioprocess=e=>ovFeed(e.inputBuffer.getChannelData(0),OV.sr);src.connect(n);n.connect(z);z.connect(OV.ctx.destination)}
 async function ovStop(){const was=OV.active;OV.active=false;try{OV.node&&OV.node.disconnect()}catch(e){}try{OV.stream&&OV.stream.getTracks().forEach(t=>t.stop())}catch(e){}
- if(was&&OV.voiced)ovCut(OV.sr);try{OV.ctx&&OV.ctx.close()}catch(e){}OV.ctx=null;OV.node=null;OV.stream=null;await OV.q}
+ if(was&&OV.voiced)ovCut(OV.sr);try{OV.ctx&&OV.ctx.close()}catch(e){}OV.ctx=null;OV.node=null;OV.stream=null;await Promise.race([OV.q,wait(OVWAIT)])}
 function startOV(kind){OV.onText=kind==='talk'?(t=>{total+=t+' '}):(t=>{$('#cap').textContent=t;enqueue(t)});
  ovStart().then(()=>{if(kind==='call')st('listen','Listening…')}).catch(e=>{stopAll();toast(e&&e.name==='NotAllowedError'?'Microphone is blocked. Allow mic access and try again.':'Could not start the microphone.',6000)});
- ovLoad().catch(e=>toast(e.message,7000))}
+ ovLoad().catch(e=>{const msg=e&&e.status==='local'?e.message:'The voice model could not start.';
+  if(SR&&navigator.onLine&&(kind==='talk'?mode==='talk':mode==='call')){D.ve='browser';save();ovStop();toast(msg+' Switched to Browser voice.',7000);if(kind==='talk')talkRun();else callListen();return}
+  stopAll();toast(msg,8000)})}
 
 /* ---------- My voices (voice match) ---------- */
 function f0Of(a,sr){const ds=Math.max(1,Math.floor(sr/8000)),fs=sr/ds,N=Math.floor(.04*fs),hop=Math.floor(.02*fs),x=new Float32Array(Math.floor(a.length/ds));for(let i=0;i<x.length;i++)x[i]=a[i*ds];
