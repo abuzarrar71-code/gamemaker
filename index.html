@@ -22,7 +22,7 @@ body:before{content:"";position:fixed;inset:-20%;background:radial-gradient(40% 
 #bg{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
 button{font:inherit;color:inherit;border:0;cursor:pointer;background:none}
 svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.brand{font-family:var(--fd);font-weight:900;letter-spacing:1.5px;background:linear-gradient(100deg,var(--ac),var(--ac2),var(--cy),var(--ac));background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:sh 5s linear infinite}
+.brand{font-family:var(--fd);font-weight:900;letter-spacing:1.5px;background:linear-gradient(100deg,var(--ac),var(--ac2),var(--cy),var(--ac));background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent}
 .brand b{font-weight:600;color:#fff;-webkit-text-fill-color:#fff;letter-spacing:1px}
 @keyframes sh{to{background-position:250% 0}}
 #splash{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity .6s,visibility .6s}
@@ -47,12 +47,12 @@ svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-l
 .laptop #bezel:before{content:"";position:absolute;top:4px;left:50%;width:5px;height:5px;margin-left:-2px;border-radius:50%;background:#05060b}
 #base{display:none}.laptop #base{display:block;height:14px;width:calc(100% + 36px);border-radius:0 0 22px 22px/0 0 12px 12px;background:linear-gradient(#d3d7ea,#8b90a8 60%,#5b5f7c);box-shadow:0 10px 24px #0008}
 .laptop #base:before{content:"";display:block;margin:0 auto;width:90px;height:5px;border-radius:0 0 8px 8px;background:#5a5e7a}
-#dev.live #bezel{animation:gl 1.6s ease-in-out infinite alternate}
+#dev.live #bezel{box-shadow:0 0 0 2px var(--ac2),0 0 0 4px #0c0d17,0 14px 36px color-mix(in srgb,var(--ac2) 45%,transparent)}
 @keyframes gl{to{box-shadow:0 0 0 2px var(--ac2),0 0 0 4px #0c0d17,0 24px 70px color-mix(in srgb,var(--ac2) 50%,transparent),0 0 120px color-mix(in srgb,var(--ac) 50%,transparent)}}
 #prog{display:none;position:absolute;left:0;right:0;top:0;height:3px;z-index:3;background:linear-gradient(90deg,transparent,var(--ac),var(--ac2),var(--cy),transparent);background-size:50% 100%;background-repeat:no-repeat;animation:pg 1.1s linear infinite}
 #dev.live #prog{display:block}@keyframes pg{from{background-position:-60% 0}to{background-position:160% 0}}
 #scan{display:none;position:absolute;left:0;right:0;height:60px;z-index:2;pointer-events:none;background:linear-gradient(transparent,color-mix(in srgb,var(--cy) 28%,transparent),transparent);animation:sc 2.2s linear infinite}
-#dev.live #scan{display:block}@keyframes sc{from{top:-60px}to{top:100%}}
+#dev.live #scan{display:none}@keyframes sc{from{top:-60px}to{top:100%}}
 iframe{width:100%;height:100%;border:0;background:#fff;display:block}
 #empty{text-align:center;color:var(--mu);padding:24px;max-width:340px}
 .orb{width:104px;height:104px;margin:0 auto 4px;border-radius:50%;background:conic-gradient(from 0deg,var(--ac),var(--ac2),var(--cy),var(--ac));box-shadow:0 0 60px color-mix(in srgb,var(--ac) 65%,transparent);animation:sp 6s linear infinite;display:grid;place-items:center}
@@ -238,11 +238,12 @@ const buzz=n=>{try{navigator.vibrate&&navigator.vibrate(n)}catch(e){}};
 function toast(t,ms){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('on'),ms||5000)}
 
 /* ---------- Animated background ---------- */
+const LOWEND=!!((navigator.deviceMemory&&navigator.deviceMemory<=4)||(navigator.hardwareConcurrency&&navigator.hardwareConcurrency<=4));
 const bgc=$('#bg'),bx=bgc.getContext('2d');let BW=0,BH=0,PT=[],BGC=['#8b5cf6','#ec4899','#22d3ee'];
 function bgColors(){try{const cs=getComputedStyle(document.documentElement);BGC=['--ac','--ac2','--cy'].map(k=>cs.getPropertyValue(k).trim()||'#8b5cf6')}catch(e){}}
 function bgSize(){const d=Math.min(devicePixelRatio||1,1.5);BW=innerWidth;BH=innerHeight;bgc.width=BW*d;bgc.height=BH*d;bx.setTransform(d,0,0,d,0,0);PT=[];const n=BW<500?28:55;for(let i=0;i<n;i++)PT.push({x:Math.random()*BW,y:Math.random()*BH,r:Math.random()*2+.5,v:Math.random()*.3+.06,c:i%3,p:Math.random()*6.28})}
 let BGL=0;
-function bgLoop(t){requestAnimationFrame(bgLoop);if(document.hidden||t-BGL<33)return;BGL=t;bx.clearRect(0,0,BW,BH);if(!D.bg)return;const f=busy?3.2:1;
+function bgLoop(t){requestAnimationFrame(bgLoop);if(document.hidden||LOWEND||busy||DLBUSY||t-BGL<33)return;BGL=t;bx.clearRect(0,0,BW,BH);if(!D.bg)return;const f=busy?3.2:1;
  for(const p of PT){p.y-=p.v*f;p.x+=Math.sin(t/2500+p.p)*.15;if(p.y<-8){p.y=BH+8;p.x=Math.random()*BW}
   bx.globalAlpha=.3+.4*Math.abs(Math.sin(t/900+p.p));bx.fillStyle=BGC[p.c];bx.beginPath();bx.arc(p.x,p.y,p.r,0,6.283);bx.fill();
   if(busy){bx.globalAlpha=.22;bx.strokeStyle=BGC[p.c];bx.lineWidth=1;bx.beginPath();bx.moveTo(p.x,p.y);bx.lineTo(p.x,p.y+p.v*70);bx.stroke()}}
@@ -611,11 +612,11 @@ async function send(text,o){
  const prev=p.h,sys=lo?SYS_LOCAL(p)+(prev&&prev.length<=6000?'\n\nCURRENT FILE:\n'+prev:prev?'\n\nA larger game already exists. Build one complete new version of the game the user describes.':''):SYS(p)+refNote()+'\n\nCURRENT FILE:\n'+(p.h||'(empty, nothing built yet)'),live=()=>cur()===p,atts=R.list.slice();
  if(live())$('#dev').classList.add('live');
  const cb=t=>{acc+=t;if(!spoken&&!o.auto){const m=acc.match(/<say>([\s\S]*?)<\/say>/);if(m){spoken=true;say=m[1].trim();sp=speak(say)}}};
- const tick=setInterval(()=>{const x=gameOf(acc);if(x===null||x.length-last<200)return;last=x.length;if(live())show(x);sfx('build');
+ const tick=setInterval(()=>{const x=gameOf(acc);if(x===null||x.length-last<400)return;last=x.length;if(live())show(x);sfx('build');
   const lines=(x.match(/\n/g)||[]).length+1;let ph='';if(/AudioContext|createOscillator|AX\./.test(x))ph='audio';else if(/<script/i.test(x))ph='code';else if(/<style/i.test(x))ph='style';
   if(ph&&!seen[ph]){seen[ph]=1;sfx('whoosh')}
   if(ph&&!said[ph]&&!speaking&&!o.auto&&spoken&&mode!=='talk'){said[ph]=1;speak(NARR[(D.l==='ur-PK'||/[\u0600-\u06FF]/.test(say))?'ur':'en'][ph])}
-  if(!speaking)st(mode==='call'?'listen':'think',(PH[ph]||'Building')+' · '+lines+' lines')},900);
+  if(!speaking)st(mode==='call'?'listen':'think',(PH[ph]||'Building')+' · '+lines+' lines')},2000);
  try{
   let tr=true,round=0;
   while(tr&&round<4){const mm=round?hist.concat([{role:'assistant',content:acc},{role:'user',content:'Continue EXACTLY where you stopped. Output only the remaining text, no repetition, no preamble.'}]):hist;
@@ -642,6 +643,16 @@ let WL=null,LLM=null,LLMId='',PROGCB=null;const prog=t=>{st('think',t);if(PROGCB
 async function libWL(){if(WL)return WL;try{WL=await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm/+esm')}catch(e){throw lerr('Could not load the on-device AI library. Connect to the internet once, then try again.')}return WL}
 const PREF={'1.5':[/Qwen2\.5-Coder-1\.5B-Instruct-q4f16_1/,/Qwen2\.5-1\.5B-Instruct-q4f16_1/,/Llama-3\.2-1B-Instruct-q4f16_1/],'3':[/Qwen2\.5-Coder-3B-Instruct-q4f16_1/,/Qwen3-4B-q4f16_1/,/Llama-3\.2-3B-Instruct-q4f16_1/,/Qwen2\.5-3B-Instruct-q4f16_1/],'7':[/Qwen2\.5-Coder-7B-Instruct-q4f16_1/,/Qwen3-8B-q4f16_1/,/Llama-3\.1-8B-Instruct-q4f16_1/]};
 function pickId(ids,q){if(q===(D.lq||'3')&&D.mm.local&&D.mm.local!=='auto'&&ids.includes(D.mm.local))return D.mm.local;for(const rx of PREF[q]||[]){const id=ids.find(x=>rx.test(x));if(id)return id}return null}
+async function mkEngine(W,id,opts){
+ let wk=null;
+ if(W.CreateWebWorkerMLCEngine&&window.Worker){
+  try{const code="let h;import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm/+esm').then(m=>{h=new m.WebWorkerMLCEngineHandler();postMessage({zready:1})}).catch(e=>postMessage({zfail:String(e)}));self.onmessage=m=>{if(h)h.onmessage(m)};";
+   wk=new Worker(URL.createObjectURL(new Blob([code],{type:'text/javascript'})),{type:'module'});
+   await new Promise((res,rej)=>{const t=setTimeout(()=>rej(new Error('timeout')),12000);wk.onerror=()=>{clearTimeout(t);rej(new Error('werr'))};
+    const on=e=>{if(e.data&&e.data.zready){clearTimeout(t);wk.removeEventListener('message',on);res()}else if(e.data&&e.data.zfail){clearTimeout(t);rej(new Error('fail'))}};wk.addEventListener('message',on)})}
+  catch(e){try{wk&&wk.terminate()}catch(x){}wk=null}}
+ if(wk)return await W.CreateWebWorkerMLCEngine(wk,id,opts);
+ return await W.CreateMLCEngine(id,opts)}
 async function loadLocal(){
  if(!navigator.gpu)throw lerr('This browser or phone does not support WebGPU, which on-device AI needs. Use Chrome on a newer phone, or switch to Gemini or Claude.');
  const W=await libWL(),ids=W.prebuiltAppConfig.model_list.map(m=>m.model_id);
@@ -651,7 +662,7 @@ async function loadLocal(){
  if(!D.llmOk&&!Object.keys(D.dlx||{}).length){const go=await ask('Download the on-device AI?','This downloads a model once (about 1 to 5 GB depending on the size). Use Wi-Fi. After that it needs no key and has no usage limits.');if(!go)throw lerr('The on-device AI download was cancelled.');D.llmOk=1;save()}
  let last='';
  for(let i=0;i<order.length;i++){const q=order[i],id=pickId(ids,q)||(i===order.length-1?(ids.find(x=>/q4f16_1/.test(x))||ids[0]):null);if(!id)continue;
-  try{prog('Loading on-device AI… 0%');const fx=await folderCfg(q);LLM=await W.CreateMLCEngine(fx?fx.id:id,Object.assign({initProgressCallback:p=>prog('Loading on-device AI… '+Math.round((p.progress||0)*100)+'%')},fx?{appConfig:fx.appConfig}:{}));LLMId=fx?fx.id:id;if(fx)freeCaches();
+  try{prog('Loading on-device AI… 0%');const fx=await folderCfg(q);LLM=await mkEngine(W,fx?fx.id:id,Object.assign({initProgressCallback:p=>prog('Loading on-device AI… '+Math.round((p.progress||0)*100)+'%')},fx?{appConfig:fx.appConfig}:{}));LLMId=fx?fx.id:id;if(fx)freeCaches();
    if(q!==(D.lq||'3')){D.lq=q;save();toast('Not enough memory for the bigger size. Switched to a smaller one that fits your phone.',7000)}return LLM}
   catch(e){LLM=null;last=String(e&&e.message||e).slice(0,90)}}
  throw lerr('The on-device AI could not start ('+last+'). Close other apps and try again, or use the Light size.')}
@@ -679,6 +690,7 @@ const useOV=()=>D.ve==='whisper'||(!navigator.onLine&&!!D.packOk);
 const OV={asr:null,asrId:'',loading:null,ctx:null,stream:null,node:null,sr:48000,active:false,onText:null,pre:[],buf:[],len:0,voiced:false,sil:0,noise:.01,q:Promise.resolve(),pending:0};
 function ovLoad(){if(OV.asr&&OV.asrId===D.wm)return Promise.resolve(OV.asr);if(OV.loading&&OV.loadId===D.wm)return OV.loading;OV.loadId=D.wm;
  OV.loading=(async()=>{let T;try{T=await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers/+esm')}catch(e){throw lerr('Could not load the voice library. Connect to the internet once, then try again.')}
+  try{T.env.backends.onnx.wasm.proxy=true}catch(e){}
   try{const rt=D.dlx[D.wm]&&await rootDir(false);if(rt&&(await fileSize(rt,'whisper/'+D.wm+'/.zdone'))>=0){T.env.allowLocalModels=true;T.env.localModelPath=new URL('zserve/whisper/',location.href).href;T.env.useBrowserCache=false}}catch(e){}
   try{OV.asr=await T.pipeline('automatic-speech-recognition',D.wm,{progress_callback:p=>{if(p&&p.status==='progress')prog('Downloading voice model '+Math.round(p.progress||0)+'%')}})}catch(e){throw lerr('Could not start the voice model. Try the Tiny size or Browser voice.')}
   OV.asrId=D.wm;return OV.asr})().catch(e=>{OV.loading=null;throw e});return OV.loading}
@@ -766,9 +778,28 @@ async function importFromFolder(){try{const g=await FHL.getDirectoryHandle('game
  if(!found.length)return;if(!(await ask('Import games?','Found '+found.length+' game file(s) in this folder. Add them to the app?')))return;
  for(const h of found){const t=await(await h.getFile()).text();D.p.push({id:Date.now()+Math.floor(Math.random()*999),n:h.name.replace(/\.html?$/i,''),d:'mobile',o:'portrait',h:t,m:[],v:[]})}
  save();draw();toast('Imported '+found.length+' game(s).')}catch(e){}}
+async function walkSize(d){let n=0;for await(const e of d.entries()){if(e[1].kind==='file')n+=(await e[1].getFile()).size;else n+=await walkSize(e[1])}return n}
+async function copyDir(src,dst,st){const ents=[];for await(const e of src.entries())ents.push(e);ents.sort((a,b)=>(a[0]==='.zdone')-(b[0]==='.zdone'));
+ for(const e of ents){const name=e[0],h=e[1];
+  if(h.kind==='file'){const f=await h.getFile();let same=false;try{same=(await(await dst.getFileHandle(name)).getFile()).size===f.size}catch(x){}
+   if(same){st.done+=f.size;st.cb();continue}
+   const w=await(await dst.getFileHandle(name,{create:true})).createWritable(),rd=f.stream().getReader();
+   try{for(;;){const x=await rd.read();if(x.done)break;await w.write(x.value);st.done+=x.value.length;st.cb()}await w.close()}catch(err){try{await w.abort()}catch(e2){}throw err}}
+  else await copyDir(h,await dst.getDirectoryHandle(name,{create:true}),st)}}
 async function connectFolder(){
  if(!window.showDirectoryPicker){FHL=null;try{await idb.set('folder',null)}catch(e){}updFolderBtn();toast('This browser cannot pick a folder, so the app uses its own internal storage on this phone.',7000);if($('#opd').open)dlRender();return}
- try{const h=await window.showDirectoryPicker({mode:'readwrite'});FHL=h;await idb.set('folder',h);permAsked=true;updFolderBtn();toast('Connected: '+h.name,3500);for(const p of D.p)if(p.h)await saveGame(p,true);await importFromFolder();if($('#opd').open)dlRender()}
+ try{const h=await window.showDirectoryPicker({mode:'readwrite'});
+  const old=await rootDir(false);let moved=false,oldHas=false;
+  try{oldHas=!!old&&!(await h.isSameEntry(old))&&!!(await old.getDirectoryHandle('models'))}catch(e){oldHas=false}
+  if(oldHas&&await ask('Move your AI files?','Copy the AI and voice files you already downloaded into the new folder? This can take a while. Keep the screen on.')){
+   try{const src=await old.getDirectoryHandle('models'),dst=await h.getDirectoryHandle('models',{create:true}),total=(await walkSize(src))||1;await wake();let last=-1;
+    const st={done:0,cb:()=>{const p=Math.floor(st.done/total*100);if(p!==last){last=p;const t='Copying to '+h.name+': '+p+'%  ('+(st.done/1e9).toFixed(2)+' of '+(total/1e9).toFixed(2)+' GB)';toast(t,60000);if($('#dlp'))$('#dlp').textContent=t}}};
+    await copyDir(src,dst,st);moved=true;toast('Copy finished.',4000)}
+   catch(err){toast('The copy stopped. Pick the folder again to continue where it stopped.',8000)}
+   unwake()}
+  FHL=h;await idb.set('folder',h);permAsked=true;updFolderBtn();
+  if(moved&&await ask('Delete the old copy?','Free the space used by the old files? Your new folder already has everything.')){try{await old.removeEntry('models',{recursive:true})}catch(e){toast('Could not delete the old copy.',4000)}}
+  toast('Connected: '+h.name,3500);for(const p of D.p)if(p.h)await saveGame(p,true);await importFromFolder();if($('#opd').open)dlRender()}
  catch(e){if(e&&e.name!=='AbortError')toast('Could not use that folder. Create a new folder (for example ZantryAI) and choose it.',7000)}}
 $('#cf').onclick=connectFolder;
 const CRCT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
